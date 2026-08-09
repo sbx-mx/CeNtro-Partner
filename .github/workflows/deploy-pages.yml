@@ -3,6 +3,8 @@ name: Deploy CeNtro Partner to GitHub Pages
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "public/data/Base_CeNtro Partner.xlsx"
   workflow_dispatch:
 
 permissions:
@@ -54,6 +56,9 @@ jobs:
 
       - name: Compilar aplicacion
         run: npm run build
+
+      - name: Registrar versión del Excel
+        run: python scripts/excel_release.py metadata --excel "public/data/Base_CeNtro Partner.xlsx" --index dist/index.html --output dist/data/excel-release.json
 
       - name: Validar salida de produccion
         run: |

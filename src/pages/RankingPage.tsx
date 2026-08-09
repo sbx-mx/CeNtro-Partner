@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import * as XLSX from 'xlsx'
-import { ArrowDown, ArrowUp, Building2, CalendarOff, Check, ChevronDown, CircleGauge, Download, EyeOff, ListChecks, MonitorUp, Trophy, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Building2, CalendarOff, Check, ChevronDown, CircleGauge, Download, ListChecks, MonitorUp, Trophy, X } from 'lucide-react'
 import { LoadingPanel } from '../components/LoadingPanel'
 import { RecoveryPanel } from '../components/RecoveryPanel'
 import { StatCard } from '../components/StatCard'
@@ -216,7 +216,6 @@ export function RankingPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>('rank')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [presentationMode, setPresentationMode] = useState(false)
-  const [hideIncomplete, setHideIncomplete] = useState(false)
 
   const displayedIndicators = useMemo(() => orderIndicators(
     stores[0]?.indicators
@@ -224,17 +223,7 @@ export function RankingPage() {
       ?? [],
   ), [stores, data, pillar])
 
-  const visibleStores = useMemo(() => {
-    if (!hideIncomplete) return stores
-    const visibleNames = new Set(displayedIndicators.map(indicator => indicator.indicator))
-    return stores.filter(store => {
-      const blankCount = store.indicators.reduce((count, indicator) => {
-        if (!visibleNames.has(indicator.indicator)) return count
-        return indicator.status === 'blank' ? count + 1 : count
-      }, 0)
-      return blankCount < 9
-    })
-  }, [stores, displayedIndicators, hideIncomplete])
+  const visibleStores = stores
 
   const sortedStores = useMemo(() => [...visibleStores].sort((a,b) => {
     if (sortColumn === 'compliance') {
@@ -377,8 +366,7 @@ export function RankingPage() {
         <div><p className="eyebrow">Clasificación dinámica</p><h2 className="section-title">Ranking Regional</h2></div>
         <div className="flex items-center gap-2">
           {presentationMode ? <button type="button" onClick={() => setPresentationMode(false)} className="presentation-exit-button"><X size={15} />Salir de presentación</button> : <button type="button" onClick={() => setPresentationMode(true)} className="presentation-button"><MonitorUp size={15} />Modo Presentación</button>}
-          <button type="button" onClick={() => setHideNewStores(current => !current)} className={`incomplete-toggle ${hideNewStores ? 'is-active' : ''}`} aria-pressed={hideNewStores} title={`${newStoreCount} tiendas tienen menos de un año desde su fecha de apertura`}><CalendarOff size={15} />{hideNewStores ? 'Mostrar nuevas' : 'Ocultar < 1 año'}</button>
-          <button type="button" onClick={() => setHideIncomplete(current => !current)} className={`incomplete-toggle ${hideIncomplete ? 'is-active' : ''}`} aria-pressed={hideIncomplete} title="Oculta tiendas con 9 o más indicadores visibles en blanco"><EyeOff size={15} />Ocultar incompletos</button>
+          <button type="button" onClick={() => setHideNewStores(current => !current)} className={`store-age-toggle ${hideNewStores ? 'is-active' : ''}`} aria-pressed={hideNewStores} title={`${newStoreCount} tiendas tienen menos de un año desde su fecha de apertura`}><CalendarOff size={15} />{hideNewStores ? 'Mostrar todas' : 'Ocultar tiendas < 1 año'}</button>
           <button type="button" onClick={exportRanking} className="secondary-ranking-control inline-flex items-center gap-2 rounded-lg border border-starbucks/20 px-3 py-2 text-xs font-bold text-starbucks hover:bg-starbucks-light"><Download size={15} />Exportar Excel</button>
           <span className="secondary-ranking-control summary-chip">{visibleStores.length} tiendas</span>
         </div>

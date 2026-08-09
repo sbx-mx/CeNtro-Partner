@@ -43,13 +43,18 @@ def json_value(value: Any) -> Any:
 def audit_workbook(source: Path) -> dict[str, Any]:
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     workbook = load_workbook(source, data_only=False, read_only=True)
-    missing_sheets = sorted(REQUIRED_SHEETS.difference(workbook.sheetnames))
+    available_sheets = {normalized(name) for name in workbook.sheetnames}
+    normalized_required_sheets = {normalized(name) for name in REQUIRED_SHEETS}
+    normalized_july_sheets = {normalized(name) for name in JULY_SHEETS}
+    missing_sheets = sorted(sheet for sheet in REQUIRED_SHEETS if normalized(sheet) not in available_sheets)
     sheets: list[dict[str, Any]] = []
     totals = Counter(rows=0, cells=0, blanks=0, formulas=0, numbers=0, text=0, dates=0)
     directory_metadata = {"storeTypes": {}, "missingOpeningDates": [], "missingStoreTypes": []}
     missing_july_sheets: list[str] = []
 
     for sheet in workbook.worksheets:
+        if sheet.max_row is None or sheet.max_column is None:
+            sheet.calculate_dimension(force=True)
         headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
         header_lookup = {normalized(header): index for index, header in enumerate(headers)}
         ceco_index = header_lookup.get("ceco")
@@ -95,6 +100,8 @@ def audit_workbook(source: Path) -> dict[str, Any]:
             store_types: Counter[str] = Counter()
             for row_number, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
                 ceco = clean_ceco(row[ceco_index]) if ceco_index is not None else ""
+                if not ceco:
+                    continue
                 opening = row[opening_index] if opening_index is not None else None
                 store_type = str(row[type_index] or "").strip() if type_index is not None else ""
                 if not opening:
@@ -107,10 +114,10 @@ def audit_workbook(source: Path) -> dict[str, Any]:
         elif sheet.title == "Instrucciones":
             expected = ("Pestaña", "Area", "Ponderacion", "Logica Selección Mes Multiple", "Logica YTD")
             missing_headers = [header for header in expected if normalized(header) not in header_lookup]
-        elif sheet.title in REQUIRED_SHEETS:
+        elif normalized(sheet.title) in normalized_required_sheets:
             missing_headers = ["CeCo"] if "ceco" not in header_lookup else []
 
-        if sheet.title in JULY_SHEETS and "jul" not in header_lookup:
+        if normalized(sheet.title) in normalized_july_sheets and "jul" not in header_lookup:
             missing_july_sheets.append(sheet.title)
 
         totals.update(counters)

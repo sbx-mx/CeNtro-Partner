@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 ALLOWED_PREFIXES = ("docs/assets/", "docs/data/")
@@ -28,7 +29,8 @@ def main() -> None:
         normalized = relative.as_posix()
         if relative.is_absolute() or ".." in relative.parts:
             raise SystemExit(f"Ruta insegura: {raw}")
-        if not normalized.startswith(ALLOWED_PREFIXES) or relative.name in PROTECTED_NAMES:
+        allowed_workbox = bool(re.fullmatch(r"docs/workbox-[A-Za-z0-9_-]+\.js", normalized))
+        if (not normalized.startswith(ALLOWED_PREFIXES) and not allowed_workbox) or relative.name in PROTECTED_NAMES:
             raise SystemExit(f"Ruta fuera del alcance permitido: {raw}")
         target = (root / relative).resolve()
         if root not in target.parents:

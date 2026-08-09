@@ -1,6 +1,6 @@
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
-import * as XLSX from 'xlsx'
-import { ArrowDown, ArrowUp, Building2, CalendarOff, Check, ChevronDown, CircleGauge, Download, ListChecks, MonitorUp, Trophy, X } from 'lucide-react'
+import { useDeferredValue, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { CellObject, Range } from 'xlsx'
+import { ArrowDown, ArrowUp, Building2, CalendarOff, Check, ChevronDown, CircleGauge, Download, ListChecks, MonitorUp, Search, Trophy, X } from 'lucide-react'
 import { LoadingPanel } from '../components/LoadingPanel'
 import { RecoveryPanel } from '../components/RecoveryPanel'
 import { StatCard } from '../components/StatCard'
@@ -62,6 +62,9 @@ function selectionLabel(selection: Period[]) {
 }
 function visibleIndicatorName(indicator: string) {
   return visibleIndicatorNames[indicator] ?? indicator
+}
+function normalizeSearch(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es-MX')
 }
 function orderIndicators(indicators: IndicatorValue[]) {
   return [...indicators].sort((a,b) => {
@@ -216,6 +219,8 @@ export function RankingPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn>('rank')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [presentationMode, setPresentationMode] = useState(false)
+  const [storeQuery, setStoreQuery] = useState('')
+  const deferredStoreQuery = useDeferredValue(storeQuery)
 
   const displayedIndicators = useMemo(() => orderIndicators(
     stores[0]?.indicators
@@ -223,7 +228,11 @@ export function RankingPage() {
       ?? [],
   ), [stores, data, pillar])
 
-  const visibleStores = stores
+  const visibleStores = useMemo(() => {
+    const query = normalizeSearch(deferredStoreQuery)
+    if (!query) return stores
+    return stores.filter(store => normalizeSearch(`${store.Tienda} ${store.CeCo}`).includes(query))
+  }, [stores, deferredStoreQuery])
 
   const sortedStores = useMemo(() => [...visibleStores].sort((a,b) => {
     if (sortColumn === 'compliance') {
@@ -260,7 +269,7 @@ export function RankingPage() {
   if (stage !== 'ready' && stage !== 'error' && !data) return <LoadingPanel stage={stage} />
   if (stage === 'error') return <RecoveryPanel message={error} onRetry={retry} />
 
-  const average = stores.length ? stores.reduce((sum,store) => sum + store.compliance, 0) / stores.length : 0
+  const average = visibleStores.length ? visibleStores.reduce((sum,store) => sum + store.compliance, 0) / visibleStores.length : 0
   const activeGroups = pillar === 'Todos' ? (['Partner','Cliente','Negocio'] as const) : ([pillar] as const)
   const title = selectionLabel(selectedPeriods)
   function toggleIndicatorSort(indicator: SortColumn) {
@@ -273,10 +282,11 @@ export function RankingPage() {
     setSortColumn('compliance')
   }
 
-  function exportRanking() {
+  async function exportRanking() {
+    const XLSX = await import('xlsx')
     const firstHeader = ['Tienda']
     const secondHeader = ['']
-    const merges: XLSX.Range[] = [
+    const merges: Range[] = [
       { s:{ r:0, c:0 }, e:{ r:1, c:0 } },
     ]
     let column = 1
@@ -294,10 +304,10 @@ export function RankingPage() {
     secondHeader.push('Cumplimiento')
     merges.push({ s:{ r:0, c:column }, e:{ r:0, c:column } })
 
-    const rows = sortedStores.map((store,index) => {
+    const rows = sortedStores.map(store => {
       const indicatorMap = new Map(indicatorsForStore(store).map(indicator => [indicator.indicator, indicator]))
       return [
-        `${index + 1} ${store.Tienda}`,
+        store.Tienda.trim(),
         ...displayedIndicators.map(indicator => formatValue(indicatorMap.get(indicator.indicator) ?? indicator)),
         `${(store.compliance * 100).toFixed(1)}%`,
       ]
@@ -317,7 +327,7 @@ export function RankingPage() {
       displayedIndicators.forEach((indicator,indicatorIndex) => {
         const current = indicatorMap.get(indicator.indicator) ?? indicator
         const address = XLSX.utils.encode_cell({ r:rowIndex + 2, c:indicatorIndex + 1 })
-        const cell = worksheet[address] as XLSX.CellObject & { c?: Array<{ a:string; t:string }> }
+        const cell = worksheet[address] as CellObject & { c?: Array<{ a:string; t:string }> }
         if (cell) cell.c = [{ a:'CeNtro Partner', t:current.detailValue ?? `Estado: ${stateLabel(current)}` }]
       })
     })
@@ -329,7 +339,7 @@ export function RankingPage() {
 
   return <div className={presentationMode ? 'presentation-mode' : undefined}>
     <section className="dashboard-summary mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <StatCard label="Total de tiendas" value={stores.length} icon={Building2} />
+      <StatCard label="Tiendas visibles" value={visibleStores.length} icon={Building2} />
       <StatCard label="Total de indicadores" value={visibleIndicatorCount} icon={ListChecks} />
       <StatCard label="Promedio de cumplimiento" value={`${(average * 100).toFixed(1)}%`} icon={CircleGauge} />
       <StatCard label="Mejor tienda" value={bestVisibleStore?.Tienda.trim() ?? '—'} icon={Trophy} />
@@ -364,6 +374,11 @@ export function RankingPage() {
     <section className="card overflow-hidden p-0">
       <div className="section-heading border-b border-slate-200 px-5 py-4">
         <div><p className="eyebrow">Clasificación dinámica</p><h2 className="section-title">Ranking Regional</h2></div>
+        <label className="ranking-search" aria-label="Buscar tienda">
+          <Search size={17} aria-hidden="true" />
+          <input value={storeQuery} onChange={event => setStoreQuery(event.target.value)} placeholder="Buscar tienda o CeCo" autoComplete="off" />
+          {storeQuery && <button type="button" onClick={() => setStoreQuery('')} aria-label="Limpiar búsqueda"><X size={15} aria-hidden="true" /></button>}
+        </label>
         <div className="flex items-center gap-2">
           {presentationMode ? <button type="button" onClick={() => setPresentationMode(false)} className="presentation-exit-button"><X size={15} />Salir de presentación</button> : <button type="button" onClick={() => setPresentationMode(true)} className="presentation-button"><MonitorUp size={15} />Modo Presentación</button>}
           <button type="button" onClick={() => setHideNewStores(current => !current)} className={`store-age-toggle ${hideNewStores ? 'is-active' : ''}`} aria-pressed={hideNewStores} title={`${newStoreCount} tiendas tienen menos de un año desde su fecha de apertura`}><CalendarOff size={15} />{hideNewStores ? 'Mostrar todas' : 'Ocultar tiendas < 1 año'}</button>
@@ -386,9 +401,9 @@ export function RankingPage() {
               </button> : <span className="indicator-static-label">{visibleIndicatorName(indicator.indicator)}</span>}
             </th>
           })}<th className="compliance-header"><button type="button" onClick={toggleComplianceSort} className="inline-flex items-center gap-1.5" title={sortColumn === 'compliance' && sortDirection === 'desc' ? 'Ordenar de menor a mayor' : 'Ordenar de mayor a menor'}>Cumplimiento {sortColumn === 'compliance' && sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}</button></th></tr></thead>
-        <tbody>{sortedStores.map((store,index) => {
+        <tbody>{sortedStores.map(store => {
           const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
-          return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-position">{index + 1}</span><span className="store-name-wrap"><span className="store-name">{store.Tienda}</span><span className="store-detail">{store.TipoTienda === '-' ? 'Sin clasificar' : store.TipoTienda.replace('_',' ')} · CeCo {store.CeCo}</span></span></td>
+          return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-name">{store.Tienda.trim()}</span></td>
             {displayedIndicators.map(indicator => {
               const current = indicatorMap.get(indicator.indicator) ?? indicator
               return <td key={current.indicator} className={stateClass(current)} title={current.detailValue}>{formatValue(current)}</td>
@@ -397,7 +412,7 @@ export function RankingPage() {
               style={complianceQuartileStyle(store.compliance, quartiles)}
               title={`Cuartiles visibles: Q1 ${(quartiles.q1 * 100).toFixed(1)}% · Q2 ${(quartiles.q2 * 100).toFixed(1)}% · Q3 ${(quartiles.q3 * 100).toFixed(1)}%`}
             ><div className="compliance-meter" aria-label={`Cumplimiento ${(store.compliance * 100).toFixed(1)}%`}><span className="compliance-progress" aria-hidden="true" /><span className="compliance-value">{(store.compliance * 100).toFixed(1)}%</span></div></td></tr>
-        })}</tbody>
+        })}{!sortedStores.length && <tr><td colSpan={displayedIndicators.length + 2} className="empty-ranking">No se encontraron tiendas con esa búsqueda.</td></tr>}</tbody>
       </table></div>
     </section>
   </div>

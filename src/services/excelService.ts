@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx'
+import type { WorkBook, WorkSheet } from 'xlsx'
 import { EFFECTIVENESS_SHEETS, INDICATORS, PERIODS, REQUIRED_SHEETS, normalize, type IndicatorConfig } from '../config/indicators'
 import type { AuditItem, DirectoryRow, IndicatorArea, IndicatorValue, Month, Period, SheetAudit, StoreResult, WorkbookResult } from '../types'
 
@@ -18,8 +18,9 @@ type WorkbookSource = {
 }
 
 const MONTHS: Month[] = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-const findSheet = (wb: XLSX.WorkBook, expected: string) => wb.SheetNames.find(name => normalize(name) === normalize(expected))
-const toRows = (ws: XLSX.WorkSheet) => XLSX.utils.sheet_to_json<Row>(ws, { defval: null, raw: true, blankrows: false })
+type XlsxModule = typeof import('xlsx')
+const findSheet = (wb: WorkBook, expected: string) => wb.SheetNames.find(name => normalize(name) === normalize(expected))
+const toRows = (XLSX: XlsxModule, ws: WorkSheet) => XLSX.utils.sheet_to_json<Row>(ws, { defval: null, raw: true, blankrows: false })
 const findKey = (obj: Row, expected: string) => Object.keys(obj).find(key => normalize(key) === normalize(expected))
 const cleanCeCo = (value: unknown) => {
   const digits = String(value ?? '').trim().replace(/\.0+$/,'').replace(/\D/g,'')
@@ -47,7 +48,7 @@ const ratio = (value: unknown) => {
   return Math.abs(number) > 1.5 ? number / 100 : number
 }
 
-const isoDate = (value: unknown): string | null => {
+const isoDate = (XLSX: XlsxModule, value: unknown): string | null => {
   if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString().slice(0,10)
   if (typeof value === 'number') {
     const parsed = XLSX.SSF.parse_date_code(value)
@@ -288,10 +289,13 @@ function evaluateSource(source: WorkbookSource, selection: Period[]): WorkbookRe
   }
 }
 
-function parseSource(buffer: ArrayBuffer, fileName: string): WorkbookSource {
+async function parseSource(buffer: ArrayBuffer, fileName: string): Promise<WorkbookSource> {
+  // XLSX es el módulo más pesado. Se carga sólo cuando comienza el procesamiento
+  // para que la interfaz ejecutiva aparezca antes y el navegador mantenga la navegación fluida.
+  const XLSX = await import('xlsx')
   const baseAudit: AuditItem[] = []
   const baseSheetAudits: SheetAudit[] = []
-  let wb: XLSX.WorkBook
+  let wb: WorkBook
   try { wb = XLSX.read(buffer, { type:'array', cellDates:true }) }
   catch { throw new Error('El archivo no pudo abrirse como libro de Excel válido.') }
 
@@ -300,7 +304,7 @@ function parseSource(buffer: ArrayBuffer, fileName: string): WorkbookSource {
   if (missingSheets.length) throw new Error(`Pestañas faltantes: ${missingSheets.join(', ')}`)
 
   const directoryName = findSheet(wb, 'Directorio')!
-  const directoryRows = toRows(wb.Sheets[directoryName])
+  const directoryRows = toRows(XLSX, wb.Sheets[directoryName])
   if (!directoryRows.length) throw new Error('La pestaña Directorio no contiene registros.')
   const cecoKey = findKey(directoryRows[0], 'CeCo')
   const storeKey = findKey(directoryRows[0], 'Tienda')
@@ -324,14 +328,14 @@ function parseSource(buffer: ArrayBuffer, fileName: string): WorkbookSource {
       Tienda:String(row[storeKey!] ?? '').trim(),
       Región:String(row[regionKey!] ?? '').trim(),
       DM:String(row[dmKey!] ?? '').trim(),
-      FechaApertura:isoDate(row[openingDateKey!]),
+      FechaApertura:isoDate(XLSX, row[openingDateKey!]),
       TipoTienda:String(row[storeTypeKey!] ?? '').trim(),
     })
   })
   baseSheetAudits.push({ sheet:directoryName, found:true, rows:directoryRows.length, headers:Object.keys(directoryRows[0]), missingHeaders:[], validCeCos:directory.length, duplicateCeCos:duplicateDirectoryCeCos })
 
   const instructionsName = findSheet(wb, 'Instrucciones')!
-  const instructionRows = toRows(wb.Sheets[instructionsName])
+  const instructionRows = toRows(XLSX, wb.Sheets[instructionsName])
   if (!instructionRows.length) throw new Error('La pestaña Instrucciones no contiene registros.')
   const instructionHeaders = {
     sheet: findKey(instructionRows[0], 'Pestaña'),
@@ -375,7 +379,7 @@ function parseSource(buffer: ArrayBuffer, fileName: string): WorkbookSource {
   })
   sourceConfigs.forEach(config => {
     const actualName = findSheet(wb, config.sheet)!
-    const rows = toRows(wb.Sheets[actualName])
+    const rows = toRows(XLSX, wb.Sheets[actualName])
     const ceco = rows[0] ? findKey(rows[0], 'CeCo') : undefined
     const periodKeys: Partial<Record<Period,string>> = {}
     if (rows[0]) PERIODS.forEach(period => { const key = findKey(rows[0], period); if (key) periodKeys[period] = key })
@@ -399,10 +403,13 @@ function parseSource(buffer: ArrayBuffer, fileName: string): WorkbookSource {
 }
 
 export async function parseWorkbook(buffer: ArrayBuffer, fileName: string, selection: Period[] = ['YTD']): Promise<WorkbookResult> {
-  return evaluateSource(parseSource(buffer, fileName), selection)
+  return evaluateSource(await parseSource(buffer, fileName), selection)
 }
 
 let defaultSource: Promise<WorkbookSource> | null = null
+export function invalidateDefaultSource() {
+  defaultSource = null
+}
 function fetchDefaultSource() {
   if (!defaultSource) {
     const url = new URL(`${import.meta.env.BASE_URL}data/Base_CeNtro%20Partner.xlsx`, window.location.origin)

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Area, IndicatorValue, LoadStage, Month, Period, Pillar, StoreResult, WorkbookResult } from '../types'
-import { loadDefault } from '../services/excelService'
+import { invalidateDefaultSource, loadDefault } from '../services/excelService'
 
 const ALL_MONTHS: Month[] = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 const FILTER_STORAGE_KEY = 'centro-partner-filters-v2'
@@ -102,8 +102,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const reloadOnReconnect = () => void load()
+    const reloadUpdatedWorkbook = () => {
+      invalidateDefaultSource()
+      void load()
+    }
     window.addEventListener('online', reloadOnReconnect)
-    return () => window.removeEventListener('online', reloadOnReconnect)
+    window.addEventListener('centro:excel-updated', reloadUpdatedWorkbook)
+    return () => {
+      window.removeEventListener('online', reloadOnReconnect)
+      window.removeEventListener('centro:excel-updated', reloadUpdatedWorkbook)
+    }
   }, [load])
 
   useEffect(() => {

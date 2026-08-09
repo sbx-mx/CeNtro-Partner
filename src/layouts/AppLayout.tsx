@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { MessageSquare } from 'lucide-react'
 
 type Campaign = { primary:string; accent:string; primaryColor:string; accentColor:string; style:string; regionLabel:string; suggestionsUrl:string }
@@ -12,11 +12,37 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [campaign, setCampaign] = useState(defaultCampaign)
   const [online, setOnline] = useState(() => navigator.onLine)
   const [updateAvailable, setUpdateAvailable] = useState(false)
+  const excelHashRef = useRef<string | null>(null)
   useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}data/campaign.json`)
       .then(response => response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`)))
       .then(data => setCampaign({ ...defaultCampaign, ...(data?.campaign ?? {}) }))
       .catch(() => setCampaign(defaultCampaign))
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const checkExcelVersion = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.BASE_URL}data/excel-release.json?t=${Date.now()}`, { cache:'no-store' })
+        if (!response.ok) return
+        const release = await response.json() as { excelSha256?:string }
+        if (!active || !release.excelSha256) return
+        if (excelHashRef.current && excelHashRef.current !== release.excelSha256) {
+          window.dispatchEvent(new Event('centro:excel-updated'))
+        }
+        excelHashRef.current = release.excelSha256
+      } catch { /* La navegación continúa aunque la comprobación no esté disponible. */ }
+    }
+    const checkWhenVisible = () => { if (document.visibilityState === 'visible') void checkExcelVersion() }
+    void checkExcelVersion()
+    const interval = window.setInterval(() => void checkExcelVersion(), 300_000)
+    document.addEventListener('visibilitychange', checkWhenVisible)
+    return () => {
+      active = false
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', checkWhenVisible)
+    }
   }, [])
 
   useEffect(() => {

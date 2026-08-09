@@ -34,7 +34,9 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: false,
-        globPatterns: ['**/*.{js,css,html,json,png,svg,xlsx}'],
+        // El Excel se actualiza de forma independiente mediante NetworkFirst;
+        // no debe quedar fijado a una revisión del precaché.
+        globPatterns: ['**/*.{js,css,html,json,png,svg}'],
         navigateFallback: 'index.html',
         runtimeCaching: [
           {

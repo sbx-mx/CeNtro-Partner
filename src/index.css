@@ -118,7 +118,6 @@ body{margin:0;min-width:320px}
 }
 .ranking-table .store-header{font-size:.9rem;letter-spacing:.06em;text-align:center!important;vertical-align:middle}
 .ranking-table td.store-col{vertical-align:middle;line-height:1.25}
-.store-position{display:inline-grid;place-items:center;margin-right:.65rem;vertical-align:middle;min-width:28px;height:28px;border-radius:999px;background:#e7f3ed;color:#006241;font-size:.75rem;font-weight:900}
 .store-name{vertical-align:middle;overflow-wrap:anywhere}
 .indicator-sort-button span{font-size:.8rem;font-weight:900}
 .indicator-sort-button svg{flex:0 0 auto;margin-bottom:.05rem}
@@ -197,6 +196,12 @@ body{margin:0;min-width:320px}
 }
 
 /* Ranking visibility controls and refined compact table. */
+.ranking-search{display:flex;width:min(100%,19rem);min-height:42px;align-items:center;gap:.55rem;border:1px solid #b8ccc3;border-radius:.75rem;background:#fff;padding:.45rem .65rem;color:#527064;transition:border-color .15s ease,box-shadow .15s ease}
+.ranking-search:focus-within{border-color:#006241;box-shadow:0 0 0 3px rgba(0,98,65,.1)}
+.ranking-search input{width:100%;min-width:0;border:0;background:transparent;color:#17211d;font-size:.82rem;font-weight:700;outline:0}
+.ranking-search input::placeholder{color:#87968f;font-weight:650}
+.ranking-search button{display:grid;width:28px;height:28px;flex:none;place-items:center;border:0;border-radius:999px;background:#edf4f0;color:#47675a;cursor:pointer}
+.ranking-search button:hover{background:#dcebe4;color:#006241}
 .store-age-toggle{
   display:inline-flex;
   align-items:center;
@@ -214,10 +219,8 @@ body{margin:0;min-width:320px}
 .store-age-toggle.is-active{border-color:#70ad91;background:#e7f3ed;color:#006241;box-shadow:inset 0 0 0 1px rgba(0,98,65,.08)}
 .ranking-table .store-col{width:248px;min-width:248px!important;max-width:276px}
 .ranking-table td.store-col{white-space:normal!important}
-.store-position{margin-right:.5rem;min-width:24px;height:24px;font-size:.68rem}
-.store-name-wrap{display:inline-flex;max-width:calc(100% - 34px);vertical-align:middle;flex-direction:column;gap:.16rem}
-.store-name{font-size:.88rem;font-weight:800;line-height:1.25}
-.store-detail{color:#64748b;font-size:.64rem;font-weight:700;letter-spacing:.015em;line-height:1.2;text-transform:none}
+.store-name{display:block;font-size:.88rem;font-weight:850;line-height:1.3}
+.ranking-table td.empty-ranking{padding:2.2rem!important;background:#f8fafc!important;color:#64748b;font-size:.85rem;font-weight:750;text-align:center}
 .indicator-sort-button{
   position:relative;
   display:grid;
@@ -251,6 +254,7 @@ body{margin:0;min-width:320px}
   .app-status{max-width:7.5rem}
   .network-status,.update-status{font-size:.66rem;padding:.4rem .55rem}
   .ranking-table .store-col{width:220px;min-width:220px!important;max-width:238px}
+  .ranking-search{order:3;width:100%}
   .store-name{font-size:.82rem}
   .store-age-toggle{padding:.45rem .6rem}
 }

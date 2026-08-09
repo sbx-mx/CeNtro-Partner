@@ -4,7 +4,14 @@ export type Pillar = 'Todos'|'Partner'|'Cliente'|'Negocio'
 export type Area = 'Todos'|'Ops'|'RH'
 export type IndicatorArea = Exclude<Area,'Todos'>
 export type LoadStage = 'idle'|'loading'|'validating'|'processing'|'ready'|'error'
-export interface DirectoryRow { CeCo: string; Tienda: string; Región: string; DM: string }
+export interface DirectoryRow {
+  CeCo: string
+  Tienda: string
+  Región: string
+  DM: string
+  FechaApertura: string | null
+  TipoTienda: string
+}
 export interface IndicatorValue {
   sheet: string
   indicator: string

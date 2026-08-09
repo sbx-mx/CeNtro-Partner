@@ -18,8 +18,10 @@ PERCENT_SHEETS = {"BB", "BT", "SS"}
 REQUIRED_SHEETS = {
     "Directorio", "Instrucciones", "ADT_AA", "VMT_AA%", "V_ppto", "V_AT_AA%", "vCOGS",
     "SegundasCx", "NPS", "Conexion", "Desempeño", "Bebida", "SR% ", "Rotacion", "Bajas<90",
-    "Estabilidad 12M", "Estabilidad 24M", "BB", "BT", "SS",
+    "Estabilidad 12M", "BB", "BT", "SS",
 }
+DIRECTORY_HEADERS = ("CeCo", "Tienda", "Región", "DM", "Fecha Apertura", "Tipo Tienda")
+JULY_SHEETS = REQUIRED_SHEETS.difference({"Directorio", "Instrucciones"})
 
 
 def normalized(value: Any) -> str:
@@ -44,6 +46,8 @@ def audit_workbook(source: Path) -> dict[str, Any]:
     missing_sheets = sorted(REQUIRED_SHEETS.difference(workbook.sheetnames))
     sheets: list[dict[str, Any]] = []
     totals = Counter(rows=0, cells=0, blanks=0, formulas=0, numbers=0, text=0, dates=0)
+    directory_metadata = {"storeTypes": {}, "missingOpeningDates": [], "missingStoreTypes": []}
+    missing_july_sheets: list[str] = []
 
     for sheet in workbook.worksheets:
         headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
@@ -85,12 +89,29 @@ def audit_workbook(source: Path) -> dict[str, Any]:
         duplicate_cecos = sorted(ceco for ceco, count in Counter(cecos).items() if count > 1)
         missing_headers = []
         if sheet.title == "Directorio":
-            missing_headers = [header for header in ("CeCo", "Tienda", "Región", "DM") if normalized(header) not in header_lookup]
+            missing_headers = [header for header in DIRECTORY_HEADERS if normalized(header) not in header_lookup]
+            opening_index = header_lookup.get(normalized("Fecha Apertura"))
+            type_index = header_lookup.get(normalized("Tipo Tienda"))
+            store_types: Counter[str] = Counter()
+            for row_number, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+                ceco = clean_ceco(row[ceco_index]) if ceco_index is not None else ""
+                opening = row[opening_index] if opening_index is not None else None
+                store_type = str(row[type_index] or "").strip() if type_index is not None else ""
+                if not opening:
+                    directory_metadata["missingOpeningDates"].append({"row": row_number, "ceco": ceco})
+                if not store_type:
+                    directory_metadata["missingStoreTypes"].append({"row": row_number, "ceco": ceco})
+                if store_type:
+                    store_types[store_type] += 1
+            directory_metadata["storeTypes"] = dict(sorted(store_types.items()))
         elif sheet.title == "Instrucciones":
             expected = ("Pestaña", "Area", "Ponderacion", "Logica Selección Mes Multiple", "Logica YTD")
             missing_headers = [header for header in expected if normalized(header) not in header_lookup]
         elif sheet.title in REQUIRED_SHEETS:
             missing_headers = ["CeCo"] if "ceco" not in header_lookup else []
+
+        if sheet.title in JULY_SHEETS and "jul" not in header_lookup:
+            missing_july_sheets.append(sheet.title)
 
         totals.update(counters)
         sheets.append({
@@ -106,17 +127,27 @@ def audit_workbook(source: Path) -> dict[str, Any]:
             "types": {key: counters[key] for key in ("numbers", "text", "dates", "booleans", "formulas", "blanks")},
         })
 
-    issues = sum(
-        len(item["missingHeaders"]) + len(item["duplicateCeCos"]) + len(item["invalidCeCos"]) + len(item["invalidPercentages"])
+    blocking_issues = len(missing_sheets) + sum(
+        len(item["missingHeaders"]) + len(item["invalidCeCos"]) + len(item["invalidPercentages"])
+        + (len(item["duplicateCeCos"]) if item["sheet"] == "Directorio" else 0)
         for item in sheets
-    ) + len(missing_sheets)
+    ) + len(directory_metadata["missingOpeningDates"]) + len(directory_metadata["missingStoreTypes"])
+    duplicate_indicator_rows = {
+        item["sheet"]: item["duplicateCeCos"] for item in sheets
+        if item["sheet"] != "Directorio" and item["duplicateCeCos"]
+    }
+    warnings = len(missing_july_sheets) + sum(len(values) for values in duplicate_indicator_rows.values())
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "source": source.name,
         "sha256": digest,
         "workbook": {"sheetCount": len(workbook.sheetnames), "missingSheets": missing_sheets},
         "totals": dict(totals),
-        "issueCount": issues,
+        "issueCount": blocking_issues,
+        "warningCount": warnings,
+        "julyCoverage": {"missingJulySheets": sorted(missing_july_sheets)},
+        "directory": directory_metadata,
+        "duplicateIndicatorRows": duplicate_indicator_rows,
         "sheets": sheets,
     }
 
@@ -129,7 +160,9 @@ def main() -> None:
     report = audit_workbook(args.source)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(json.dumps({"issueCount": report["issueCount"], "output": str(args.output)}, ensure_ascii=False))
+    print(json.dumps({"issueCount": report["issueCount"], "warningCount": report["warningCount"], "output": str(args.output)}, ensure_ascii=False))
+    if report["issueCount"]:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

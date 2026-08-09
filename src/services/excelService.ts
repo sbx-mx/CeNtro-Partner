@@ -4,7 +4,7 @@ import type { AuditItem, DirectoryRow, IndicatorArea, IndicatorValue, Month, Per
 
 type Row = Record<string, unknown>
 type Instruction = { areas: IndicatorArea[]; rule: string; multipleMonthLogic: string; ytdLogic: string }
-type IndicatorSheet = { config: IndicatorConfig; actualName: string; rows: Row[]; cecoKey?: string; periodKeys: Partial<Record<Period,string>> }
+type IndicatorSheet = { config: IndicatorConfig; actualName: string; rows: Row[]; rowsByCeCo: Map<string,Row>; cecoKey?: string; periodKeys: Partial<Record<Period,string>> }
 type WorkbookSource = {
   fileName: string
   directory: DirectoryRow[]
@@ -45,6 +45,19 @@ const ratio = (value: unknown) => {
   const number = numeric(value)
   if (number === null) return null
   return Math.abs(number) > 1.5 ? number / 100 : number
+}
+
+const isoDate = (value: unknown): string | null => {
+  if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString().slice(0,10)
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value)
+    if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2,'0')}-${String(parsed.d).padStart(2,'0')}`
+  }
+  const text = String(value ?? '').trim()
+  if (!text) return null
+  const match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/)
+  const date = match ? new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1])) : new Date(text)
+  return Number.isFinite(date.getTime()) ? date.toISOString().slice(0,10) : null
 }
 
 const percentageValue = (value: unknown): number | null => {
@@ -89,9 +102,8 @@ function selectedMonths(selection: Period[]): Month[] {
 }
 
 function valuesForStore(sheet: IndicatorSheet, ceco: string, periods: Period[]) {
-  const rows = sheet.rows.filter(row => cleanCeCo(row[sheet.cecoKey!]) === ceco)
-  if (!rows.length) return new Map<Period,unknown>()
-  const row = rows[rows.length - 1]
+  const row = sheet.rowsByCeCo.get(ceco)
+  if (!row) return new Map<Period,unknown>()
   const values = new Map<Period,unknown>()
   periods.forEach(period => {
     const key = sheet.periodKeys[period]
@@ -294,7 +306,9 @@ function parseSource(buffer: ArrayBuffer, fileName: string): WorkbookSource {
   const storeKey = findKey(directoryRows[0], 'Tienda')
   const regionKey = findKey(directoryRows[0], 'Región')
   const dmKey = findKey(directoryRows[0], 'DM')
-  const missingDirectoryHeaders = [['CeCo',cecoKey],['Tienda',storeKey],['Región',regionKey],['DM',dmKey]].filter(([,key]) => !key).map(([header]) => header as string)
+  const openingDateKey = findKey(directoryRows[0], 'Fecha Apertura')
+  const storeTypeKey = findKey(directoryRows[0], 'Tipo Tienda')
+  const missingDirectoryHeaders = [['CeCo',cecoKey],['Tienda',storeKey],['Región',regionKey],['DM',dmKey],['Fecha Apertura',openingDateKey],['Tipo Tienda',storeTypeKey]].filter(([,key]) => !key).map(([header]) => header as string)
   if (missingDirectoryHeaders.length) throw new Error(`Directorio requiere encabezados: ${missingDirectoryHeaders.join(', ')}.`)
 
   const seen = new Set<string>()
@@ -310,6 +324,8 @@ function parseSource(buffer: ArrayBuffer, fileName: string): WorkbookSource {
       Tienda:String(row[storeKey!] ?? '').trim(),
       Región:String(row[regionKey!] ?? '').trim(),
       DM:String(row[dmKey!] ?? '').trim(),
+      FechaApertura:isoDate(row[openingDateKey!]),
+      TipoTienda:String(row[storeTypeKey!] ?? '').trim(),
     })
   })
   baseSheetAudits.push({ sheet:directoryName, found:true, rows:directoryRows.length, headers:Object.keys(directoryRows[0]), missingHeaders:[], validCeCos:directory.length, duplicateCeCos:duplicateDirectoryCeCos })
@@ -364,11 +380,20 @@ function parseSource(buffer: ArrayBuffer, fileName: string): WorkbookSource {
     const periodKeys: Partial<Record<Period,string>> = {}
     if (rows[0]) PERIODS.forEach(period => { const key = findKey(rows[0], period); if (key) periodKeys[period] = key })
     if (!ceco) throw new Error(`${actualName} requiere el encabezado CeCo.`)
-    indicatorSheets.set(config.sheet, { config, actualName, rows, cecoKey:ceco, periodKeys })
-    baseSheetAudits.push({ sheet:actualName, found:true, rows:rows.length, headers:rows[0] ? Object.keys(rows[0]) : [], missingHeaders:[], validCeCos:new Set(rows.map(row => cleanCeCo(row[ceco])).filter(Boolean)).size, duplicateCeCos:[] })
+    const rowsByCeCo = new Map<string,Row>()
+    const counts = new Map<string,number>()
+    rows.forEach(row => {
+      const currentCeCo = cleanCeCo(row[ceco])
+      if (!currentCeCo) return
+      rowsByCeCo.set(currentCeCo, row)
+      counts.set(currentCeCo, (counts.get(currentCeCo) ?? 0) + 1)
+    })
+    const duplicateCeCos = [...counts].filter(([,count]) => count > 1).map(([currentCeCo]) => currentCeCo)
+    indicatorSheets.set(config.sheet, { config, actualName, rows, rowsByCeCo, cecoKey:ceco, periodKeys })
+    baseSheetAudits.push({ sheet:actualName, found:true, rows:rows.length, headers:rows[0] ? Object.keys(rows[0]) : [], missingHeaders:[], validCeCos:rowsByCeCo.size, duplicateCeCos })
   })
   baseAudit.push({ level:'ok', category:'Estructura', message:`${directory.length} tiendas y ${INDICATORS.length} indicadores cargados por pestaña y encabezado.` })
-  baseAudit.push({ level:'ok', category:'Directorio', message:`Tienda, Región y DM relacionados exclusivamente por CeCo para ${directory.length} tiendas únicas.` })
+  baseAudit.push({ level:'ok', category:'Directorio', message:`Tienda, Región, DM, Fecha Apertura y Tipo Tienda relacionados exclusivamente por CeCo para ${directory.length} tiendas únicas.` })
 
   return { fileName, directory, duplicateDirectoryCeCos, foundSheets, missingSheets, instructions, indicatorSheets, baseAudit, baseSheetAudits }
 }

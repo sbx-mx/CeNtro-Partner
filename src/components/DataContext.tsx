@@ -3,12 +3,13 @@ import type { Area, IndicatorValue, LoadStage, Month, Period, Pillar, StoreResul
 import { loadDefault } from '../services/excelService'
 
 const ALL_MONTHS: Month[] = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
-const FILTER_STORAGE_KEY = 'centro-partner-filters-v1'
-type SavedFilters = { selectedPeriods?:Period[]; pillar?:Pillar; region?:string; dm?:string; area?:Area }
+const FILTER_STORAGE_KEY = 'centro-partner-filters-v2'
+const LEGACY_FILTER_STORAGE_KEY = 'centro-partner-filters-v1'
+type SavedFilters = { selectedPeriods?:Period[]; pillar?:Pillar; region?:string; dm?:string; area?:Area; storeType?:string; hideNewStores?:boolean }
 
 function readSavedFilters(): SavedFilters {
   try {
-    const saved = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) ?? '{}') as SavedFilters
+    const saved = JSON.parse(localStorage.getItem(FILTER_STORAGE_KEY) ?? localStorage.getItem(LEGACY_FILTER_STORAGE_KEY) ?? '{}') as SavedFilters
     const validPeriods = (saved.selectedPeriods ?? []).filter(period => period === 'YTD' || ALL_MONTHS.includes(period as Month))
     return {
       selectedPeriods:validPeriods.length ? validPeriods : undefined,
@@ -16,6 +17,8 @@ function readSavedFilters(): SavedFilters {
       region:typeof saved.region === 'string' ? saved.region : undefined,
       dm:typeof saved.dm === 'string' ? saved.dm : undefined,
       area:['Todos','Ops','RH'].includes(saved.area ?? '') ? saved.area : undefined,
+      storeType:typeof saved.storeType === 'string' ? saved.storeType : undefined,
+      hideNewStores:typeof saved.hideNewStores === 'boolean' ? saved.hideNewStores : undefined,
     }
   } catch { return {} }
 }
@@ -39,6 +42,12 @@ type Ctx = {
   dms: string[]
   area: Area
   setArea: (value: Area) => void
+  storeType: string
+  setStoreType: (value: string) => void
+  storeTypes: string[]
+  hideNewStores: boolean
+  setHideNewStores: (value: boolean | ((current: boolean) => boolean)) => void
+  newStoreCount: number
   visibleIndicatorCount: number
   retry: () => void
 }
@@ -53,6 +62,15 @@ function summarizeIndicators(indicators: IndicatorValue[]) {
   return { fulfilled, failed, na, applicable, compliance: applicable ? fulfilled / applicable : 0 }
 }
 
+function openedLessThanOneYear(isoDate: string | null, today = new Date()) {
+  if (!isoDate) return false
+  const [year, month, day] = isoDate.split('-').map(Number)
+  const opened = new Date(year, month - 1, day)
+  if (!Number.isFinite(opened.getTime())) return false
+  const cutoff = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())
+  return opened > cutoff
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const [savedFilters] = useState(readSavedFilters)
   const [data, setData] = useState<WorkbookResult | null>(null)
@@ -63,6 +81,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [region, setRegion] = useState(savedFilters.region ?? 'Todas')
   const [dm, setDm] = useState(savedFilters.dm ?? 'Todos')
   const [area, setArea] = useState<Area>(savedFilters.area ?? 'Todos')
+  const [storeType, setStoreType] = useState(savedFilters.storeType ?? 'Todos')
+  const [hideNewStores, setHideNewStores] = useState(savedFilters.hideNewStores ?? false)
 
   const load = useCallback(async () => {
     setError('')
@@ -87,9 +107,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [load])
 
   useEffect(() => {
-    try { localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ selectedPeriods, pillar, region, dm, area })) }
+    try { localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({ selectedPeriods, pillar, region, dm, area, storeType, hideNewStores })) }
     catch { /* Persistencia progresiva; la aplicación sigue funcionando sin almacenamiento. */ }
-  }, [selectedPeriods, pillar, region, dm, area])
+  }, [selectedPeriods, pillar, region, dm, area, storeType, hideNewStores])
 
   const togglePeriod = useCallback((value: Period) => {
     setSelectedPeriods(current => {
@@ -116,14 +136,32 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [data, region],
   )
 
+  const storeTypes = useMemo(
+    () => Array.from(new Set((data?.stores ?? []).map(store => store.TipoTienda).filter(Boolean))).sort((a,b) => a.localeCompare(b,'es')),
+    [data],
+  )
+
   useEffect(() => {
     if (dm !== 'Todos' && !dms.includes(dm)) setDm('Todos')
   }, [dm, dms])
+
+  useEffect(() => {
+    if (storeType !== 'Todos' && !storeTypes.includes(storeType)) setStoreType('Todos')
+  }, [storeType, storeTypes])
+
+  const newStoreCount = useMemo(() => (data?.stores ?? []).filter(store =>
+    (region === 'Todas' || store.Región === region)
+    && (dm === 'Todos' || store.DM === dm)
+    && (storeType === 'Todos' || store.TipoTienda === storeType)
+    && openedLessThanOneYear(store.FechaApertura)
+  ).length, [data, region, dm, storeType])
 
   const stores = useMemo(() => {
     const filteredByDirectory = (data?.stores ?? []).filter(store =>
       (region === 'Todas' || store.Región === region)
       && (dm === 'Todos' || store.DM === dm)
+      && (storeType === 'Todos' || store.TipoTienda === storeType)
+      && (!hideNewStores || !openedLessThanOneYear(store.FechaApertura))
     )
     return filteredByDirectory
       .map(store => {
@@ -133,7 +171,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       })
       .sort((a,b) => b.compliance - a.compliance || b.fulfilled - a.fulfilled || a.CeCo.localeCompare(b.CeCo))
       .map((store,index) => ({ ...store, rank:index + 1 }))
-  }, [data, region, dm, pillar, area])
+  }, [data, region, dm, storeType, hideNewStores, pillar, area])
 
   const visibleIndicatorCount = useMemo(() => {
     const indicators = data?.stores[0]?.indicators ?? []
@@ -145,7 +183,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   return <DataContext.Provider value={{
     data, stores, stage, error, selectedPeriods, togglePeriod, selectAllMonths, clearMonths,
-    pillar, setPillar, region, setRegion, regions, dm, setDm, dms, area, setArea, visibleIndicatorCount,
+    pillar, setPillar, region, setRegion, regions, dm, setDm, dms, area, setArea,
+    storeType, setStoreType, storeTypes, hideNewStores, setHideNewStores, newStoreCount, visibleIndicatorCount,
     retry:() => void load(),
   }}>{children}</DataContext.Provider>
 }

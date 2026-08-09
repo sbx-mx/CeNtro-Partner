@@ -71,7 +71,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
     </header>
     <main className="mx-auto max-w-[1800px] p-4 sm:p-6 lg:p-8">{children}</main>
     <footer className="app-footer">
-      <p className="design-credit">Diseñado por Jorge Alcantar Aguiar &amp; Enrique César Flores</p>
+      <div className="footer-purpose">
+        <p className="design-credit"><strong>Diseñado por Enrique César Flores</strong></p>
+        <p>CeNtro Partner apoya la operación, la toma de decisiones y la mejora continua. Uso exclusivo de equipos autorizados.</p>
+        <p className="footer-tags">#DistritoKike 🚀 · #GreenApronService · JUNTÉMONOS MÁS</p>
+      </div>
       <button type="button" className="suggestions-link" onClick={() => setSuggestionsOpen(true)} aria-haspopup="dialog">
         <MessageSquare size={17} aria-hidden="true" />
         Sugerencias y/o recomendaciones

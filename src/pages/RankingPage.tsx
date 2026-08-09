@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import * as XLSX from 'xlsx'
-import { ArrowDown, ArrowUp, Building2, Check, ChevronDown, CircleGauge, Download, EyeOff, ListChecks, MonitorUp, Trophy, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Building2, CalendarOff, Check, ChevronDown, CircleGauge, Download, EyeOff, ListChecks, MonitorUp, Trophy, X } from 'lucide-react'
 import { LoadingPanel } from '../components/LoadingPanel'
 import { RecoveryPanel } from '../components/RecoveryPanel'
 import { StatCard } from '../components/StatCard'
@@ -10,12 +10,11 @@ import type { Area, IndicatorValue, Month, Period, Pillar, StoreResult } from '.
 const months: Month[] = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 const pillars: Pillar[] = ['Todos','Partner','Cliente','Negocio']
 const areas: Area[] = ['Todos','Ops','RH']
-const percentIndicators = new Set(['Rotacion','Estabilidad 12M','Estabilidad 24M','Desempeño','Conexion','Bebida','SR%','VMT%','ppto%','AT%','COGS'])
+const percentIndicators = new Set(['Rotacion','Estabilidad 12M','Desempeño','Conexion','Bebida','SR%','VMT%','ppto%','AT%','COGS'])
 const clientIndicatorOrder = ['NPS','Conexion','Desempeño','Bebida','SR%']
 const visibleIndicatorNames: Record<string,string> = {
   'Rotacion':'Rotación',
   'Estabilidad 12M':'E-12M',
-  'Estabilidad 24M':'E-24M',
   'Conexion':'Conexión',
 }
 
@@ -30,7 +29,7 @@ function formatValue(item: IndicatorValue) {
   if (typeof item.value === 'number') {
     if (percentIndicators.has(item.indicator)) {
       const ratio = Math.abs(item.value) > 1.5 ? item.value / 100 : item.value
-      const decimals = item.indicator === 'Estabilidad 12M' || item.indicator === 'Estabilidad 24M' ? 0 : 1
+      const decimals = item.indicator === 'Estabilidad 12M' ? 0 : 1
       return `${(ratio * 100).toFixed(decimals)}%`
     }
     if (item.indicator === 'OMT') return new Intl.NumberFormat('es-MX', { maximumFractionDigits:0 }).format(Math.round(item.value))
@@ -209,7 +208,11 @@ function MonthPicker({ selectedPeriods, togglePeriod, selectAllMonths, clearMont
 }
 
 export function RankingPage() {
-  const { data, stores, stage, error, retry, selectedPeriods, togglePeriod, selectAllMonths, clearMonths, pillar, setPillar, region, setRegion, regions, dm, setDm, dms, visibleIndicatorCount, area, setArea } = useData()
+  const {
+    data, stores, stage, error, retry, selectedPeriods, togglePeriod, selectAllMonths, clearMonths,
+    pillar, setPillar, region, setRegion, regions, dm, setDm, dms, visibleIndicatorCount, area, setArea,
+    storeType, setStoreType, storeTypes, hideNewStores, setHideNewStores, newStoreCount,
+  } = useData()
   const [sortColumn, setSortColumn] = useState<SortColumn>('rank')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [presentationMode, setPresentationMode] = useState(false)
@@ -346,7 +349,7 @@ export function RankingPage() {
     <section className="ranking-filters card mb-5 py-4">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-48"><p className="eyebrow">Vista ejecutiva</p><h2 className="section-title">Resultados {title}</h2></div>
-        <div className="grid w-full gap-3 sm:grid-cols-2 xl:max-w-6xl xl:grid-cols-5">
+        <div className="grid w-full gap-3 sm:grid-cols-2 xl:max-w-7xl xl:grid-cols-6">
           <div className="filter-label">Mes
             <MonthPicker selectedPeriods={selectedPeriods} togglePeriod={togglePeriod} selectAllMonths={selectAllMonths} clearMonths={clearMonths} />
           </div>
@@ -362,6 +365,9 @@ export function RankingPage() {
           <label className="filter-label">Distrito
             <select value={dm} onChange={event => setDm(event.target.value)} className="control"><option>Todos</option>{dms.map(value => <option key={value}>{value}</option>)}</select>
           </label>
+          <label className="filter-label">Tipo de tienda
+            <select value={storeType} onChange={event => setStoreType(event.target.value)} className="control"><option>Todos</option>{storeTypes.map(value => <option key={value} value={value}>{value === '-' ? 'Sin clasificar' : value.replace('_',' ')}</option>)}</select>
+          </label>
         </div>
       </div>
     </section>
@@ -371,6 +377,7 @@ export function RankingPage() {
         <div><p className="eyebrow">Clasificación dinámica</p><h2 className="section-title">Ranking Regional</h2></div>
         <div className="flex items-center gap-2">
           {presentationMode ? <button type="button" onClick={() => setPresentationMode(false)} className="presentation-exit-button"><X size={15} />Salir de presentación</button> : <button type="button" onClick={() => setPresentationMode(true)} className="presentation-button"><MonitorUp size={15} />Modo Presentación</button>}
+          <button type="button" onClick={() => setHideNewStores(current => !current)} className={`incomplete-toggle ${hideNewStores ? 'is-active' : ''}`} aria-pressed={hideNewStores} title={`${newStoreCount} tiendas tienen menos de un año desde su fecha de apertura`}><CalendarOff size={15} />{hideNewStores ? 'Mostrar nuevas' : 'Ocultar < 1 año'}</button>
           <button type="button" onClick={() => setHideIncomplete(current => !current)} className={`incomplete-toggle ${hideIncomplete ? 'is-active' : ''}`} aria-pressed={hideIncomplete} title="Oculta tiendas con 9 o más indicadores visibles en blanco"><EyeOff size={15} />Ocultar incompletos</button>
           <button type="button" onClick={exportRanking} className="secondary-ranking-control inline-flex items-center gap-2 rounded-lg border border-starbucks/20 px-3 py-2 text-xs font-bold text-starbucks hover:bg-starbucks-light"><Download size={15} />Exportar Excel</button>
           <span className="secondary-ranking-control summary-chip">{visibleStores.length} tiendas</span>
@@ -393,7 +400,7 @@ export function RankingPage() {
           })}<th className="compliance-header"><button type="button" onClick={toggleComplianceSort} className="inline-flex items-center gap-1.5" title={sortColumn === 'compliance' && sortDirection === 'desc' ? 'Ordenar de menor a mayor' : 'Ordenar de mayor a menor'}>Cumplimiento {sortColumn === 'compliance' && sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}</button></th></tr></thead>
         <tbody>{sortedStores.map((store,index) => {
           const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
-          return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-position">{index + 1}</span><span className="store-name">{store.Tienda}</span></td>
+          return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-position">{index + 1}</span><span className="store-name-wrap"><span className="store-name">{store.Tienda}</span><span className="store-detail">{store.TipoTienda === '-' ? 'Sin clasificar' : store.TipoTienda.replace('_',' ')} · CeCo {store.CeCo}</span></span></td>
             {displayedIndicators.map(indicator => {
               const current = indicatorMap.get(indicator.indicator) ?? indicator
               return <td key={current.indicator} className={stateClass(current)} title={current.detailValue}>{formatValue(current)}</td>

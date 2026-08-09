@@ -11,7 +11,6 @@ export const INDICATORS: IndicatorConfig[] = [
   { sheet:'Rotacion', indicator:'Rotacion', pillar:'Partner', evaluator:'lte36pct' },
   { sheet:'Bajas<90', indicator:'Bajas<90', pillar:'Partner', evaluator:'lte0' },
   { sheet:'Estabilidad 12M', indicator:'Estabilidad 12M', pillar:'Partner', evaluator:'equals1' },
-  { sheet:'Estabilidad 24M', indicator:'Estabilidad 24M', pillar:'Partner', evaluator:'equals1' },
   { sheet:'BB', indicator:'Efectividad', pillar:'Partner', evaluator:'equals1' },
   { sheet:'NPS', indicator:'NPS', pillar:'Cliente', evaluator:'gt70' },
   { sheet:'Desempeño', indicator:'Desempeño', pillar:'Cliente', evaluator:'gt70pct' },

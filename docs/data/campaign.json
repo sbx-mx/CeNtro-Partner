@@ -1,0 +1,10 @@
+{
+  "campaign": {
+    "primary": "JUNTÉMONOS",
+    "accent": "más",
+    "primaryColor": "#006241",
+    "accentColor": "#111111",
+    "style": "corporativo-expresivo",
+    "regionLabel": "#JUNTÉMONOSCENTROS"
+  }
+}

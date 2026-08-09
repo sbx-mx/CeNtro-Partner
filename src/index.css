@@ -41,6 +41,7 @@ body{margin:0;min-width:320px}
 .update-status:hover{background:#d8ece2}
 .app-footer{display:flex;align-items:center;justify-content:space-between;gap:1rem;max-width:1800px;margin:0 auto;padding:1rem 1.5rem 1.5rem;color:#64748b;font-size:.78rem}
 .design-credit{margin:0}
+.footer-purpose{display:grid;max-width:72rem;gap:.2rem;line-height:1.45}.footer-purpose p{margin:0}.footer-tags{color:#006241;font-weight:850}
 .suggestions-link{display:inline-flex;min-height:44px;align-items:center;gap:.5rem;border:0;border-radius:.7rem;background:transparent;padding:.55rem .7rem;color:#006241;font-size:.78rem;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .suggestions-link:hover{background:#e7f3ed}
 .suggestions-backdrop{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;padding:1rem;background:rgba(0,47,37,.48)}
@@ -225,7 +226,9 @@ body{margin:0;min-width:320px}
 .ranking-table .store-col{width:248px;min-width:248px!important;max-width:276px}
 .ranking-table td.store-col{white-space:normal!important}
 .store-position{margin-right:.5rem;min-width:24px;height:24px;font-size:.68rem}
+.store-name-wrap{display:inline-flex;max-width:calc(100% - 34px);vertical-align:middle;flex-direction:column;gap:.16rem}
 .store-name{font-size:.88rem;font-weight:800;line-height:1.25}
+.store-detail{color:#64748b;font-size:.64rem;font-weight:700;letter-spacing:.015em;line-height:1.2;text-transform:none}
 .indicator-sort-button{
   position:relative;
   display:grid;

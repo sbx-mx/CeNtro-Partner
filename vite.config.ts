@@ -9,6 +9,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Evita fallos de Terser en la generación del SW entre Node 22/24.
+      // La aplicación principal continúa minificada por Vite.
+      mode: 'development',
       registerType: 'prompt',
       injectRegister: false,
       manifest: {

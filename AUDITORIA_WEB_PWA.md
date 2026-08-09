@@ -1,45 +1,29 @@
-# Auditoría breve — CeNtro Partner
+# Auditoría vigente — CeNtro Partner
 
-## Resultado
+Fecha: 8 de agosto de 2026
 
-- Proyecto React/Vite/PWA compilado correctamente para la ruta `/CeNtro-Partner/`.
-- Los 12 módulos de `src` están referenciados; no se detectaron módulos fuente muertos.
-- No se eliminaron recursos históricos de `docs`: el flujo vigente de GitHub Pages compila y publica `dist` mediante GitHub Actions.
-- Se eliminó la duplicidad validada del precaché y se consolidó CSS repetido de los encabezados.
-- Logo principal e iconos PWA corregidos: solo cambió el fondo negro exterior; contenido, proporción y resoluciones 1254 × 1254, 512 × 512 y 192 × 192 se conservaron.
-- Encabezados verticales unificados a 46 × 144 px en escritorio y 42 × 136 px en móvil, con centro visual común.
-- Filtros persistentes, recuperación al reconectar, estado offline y aviso discreto de actualización PWA incorporados.
-- Service Worker configurado con actualización no disruptiva, precaché único y estrategia `NetworkFirst` para Excel.
-- Manifest válido: `start_url`, `scope`, iconos, tema y modo `standalone` correctos.
+## Resultado técnico
+
+- TypeScript, Vite y PWA compilados correctamente para `/CeNtro-Partner/`.
+- Excel motor sincronizado de forma atómica mediante Python y publicado tanto en `public/data` como en `docs/data`.
+- 372 CeCo únicos, seis campos obligatorios del Directorio y 15 indicadores activos.
+- `Estabilidad 24M` retirada del motor y de la interfaz conforme al nuevo libro.
+- Procesamiento de indicadores indexado por CeCo para evitar búsquedas repetidas por tienda.
+- Filtros persistentes por Región, Distrito y Tipo de tienda.
+- Control independiente para ocultar dinámicamente tiendas con menos de un año desde su apertura.
+- Flujo manual y seguro para auditar o eliminar archivos obsoletos declarados explícitamente.
 
 ## Excel
 
-- Archivo auditado: `Base_CeNtro Partner.xlsx`.
-- SHA-256: `3ed2bddd9669a6d36f3dc1cf945553bde93b47a39a59852e47eae8ee4d7f77db`.
-- 22 pestañas, 7,386 filas de datos y 54,782 celdas revisadas.
-- 372 CeCo únicos en Directorio.
-- Sin pestañas ni encabezados obligatorios faltantes.
-- Sin CeCo duplicados o inválidos.
-- Sin porcentajes inválidos en BB, BT o SS.
-- El Excel adjunto ya coincide con el publicado; no requirió modificación ni se incluye nuevamente.
+- SHA-256: `d7d8837b0e48562c8d44a7d329ec832f6d09aebbcb67284eb2f29e9014a9aa3a`.
+- 21 pestañas y 0 errores estructurales bloqueantes.
+- Directorio: 372 tiendas, sin CeCo duplicados y sin metadatos de apertura o tipo faltantes.
+- Angel / CeCo 38101 validada con Región Centro Centro, DM Daniel Flores Maldonado, apertura 06/09/2002 y tipo Cafe.
+- Advertencias conservadas sin alterar datos: `vCOGS` y `SR%` no contienen columna julio; `VMT_AA%` repite los CeCo 43142 y 43147 y el motor conserva la última fila, como en la lógica original.
+- `Rewards %` no se incorpora hasta recibir una fuente confirmada.
 
-## Validación funcional
+## Validación
 
-- Efectividad, Cumplimiento y Ranking conservaron su lógica.
-- CeCo 38371: YTD 75%, MAR–JUN 75% y MAY 50%.
-- TypeScript sin errores.
-- Producción y PWA generadas sin rutas rotas.
-- JSON de campaña y auditoría válidos y disponibles offline.
-
-## Observación de rendimiento
-
-El paquete principal conserva `xlsx`, necesario para procesar localmente el libro completo. Se mantuvo en carga inicial para no alterar la lógica ni introducir dependencias o estados intermedios adicionales.
-
-## Optimización controlada — 24 de julio de 2026
-
-- Se agregó la atribución discreta en el pie de página.
-- Se incorporó un acceso secundario y accesible para sugerencias.
-- No existe un canal autorizado en el proyecto; el diálogo informa que está pendiente de configuración y no publica enlaces vacíos.
-- El destino futuro se centralizó en `SUGGESTIONS_CHANNEL_URL`.
-- Se reforzaron áreas táctiles de 44 px, foco visible, cierre con Escape, adaptación móvil y movimiento reducido.
-- Se mantuvieron sin cambios el procesamiento del Excel, filtros, cálculos, exportación, persistencia y rutas de GitHub Pages.
+- `python scripts/validate_workbook.py`: 0 errores, 4 advertencias documentadas.
+- `npm run check`: correcto.
+- `npm run build`: correcto; 1,593 módulos transformados y Service Worker generado.

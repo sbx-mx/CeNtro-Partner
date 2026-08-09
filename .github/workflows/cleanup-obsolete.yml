@@ -1,0 +1,44 @@
+name: Revisar archivos obsoletos
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_delete:
+        description: Escribe ELIMINAR para aplicar el manifiesto; cualquier otro valor solo audita
+        required: false
+        default: AUDITAR
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Auditar manifiesto
+        run: python scripts/cleanup_obsolete.py
+
+      - name: Eliminar archivos autorizados
+        if: ${{ inputs.confirm_delete == 'ELIMINAR' }}
+        run: python scripts/cleanup_obsolete.py --apply
+
+      - name: Registrar limpieza
+        if: ${{ inputs.confirm_delete == 'ELIMINAR' }}
+        run: |
+          if git diff --quiet; then
+            echo "No hay archivos por eliminar"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u -- docs/assets docs/data
+          git commit -m "chore: eliminar archivos obsoletos autorizados"
+          git push

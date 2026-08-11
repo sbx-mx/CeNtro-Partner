@@ -260,10 +260,10 @@ export function RankingPage() {
         const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
         const comparison = complianceComparison(store)
         const complianceTone: PdfTone = store.compliance >= quartiles.q3
-          ? 'ok'
+          ? 'compliance-top'
           : store.compliance >= quartiles.q2
-            ? 'average'
-            : store.compliance < quartiles.q1 ? 'bad' : 'neutral'
+            ? 'compliance-upper'
+            : store.compliance >= quartiles.q1 ? 'compliance-lower' : 'compliance-bottom'
         return {
           store:`#${position + 1}  ${store.Tienda.trim()}`,
           indicators:displayedIndicators.map(template => {

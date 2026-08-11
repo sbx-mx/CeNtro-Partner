@@ -1,6 +1,7 @@
 import type { CellDef, RowInput, Styles } from 'jspdf-autotable'
 
 export type PdfTone = 'ok' | 'bad' | 'na' | 'neutral' | 'average' | 'up' | 'down' | 'flat'
+  | 'compliance-top' | 'compliance-upper' | 'compliance-lower' | 'compliance-bottom'
 
 export interface RankingPdfCell {
   value: string
@@ -47,6 +48,10 @@ function safeFilePart(value: string) {
 }
 
 function cellStyle(tone: PdfTone = 'neutral'): Partial<Styles> {
+  if (tone === 'compliance-top') return { fillColor:[223, 243, 232], textColor:[6, 78, 51], lineColor:[139, 201, 169], lineWidth:.45, fontStyle:'bold' }
+  if (tone === 'compliance-upper') return { fillColor:[255, 243, 191], textColor:[89, 73, 0], lineColor:[223, 195, 77], lineWidth:.45, fontStyle:'bold' }
+  if (tone === 'compliance-lower') return { fillColor:[255, 224, 178], textColor:[113, 56, 0], lineColor:[231, 162, 81], lineWidth:.45, fontStyle:'bold' }
+  if (tone === 'compliance-bottom') return { fillColor:[249, 214, 213], textColor:[123, 23, 16], lineColor:[223, 142, 137], lineWidth:.45, fontStyle:'bold' }
   if (tone === 'ok') return { fillColor:[232, 245, 238], textColor:[8, 116, 67], fontStyle:'bold' }
   if (tone === 'bad') return { fillColor:[253, 236, 236], textColor:[180, 35, 24], fontStyle:'bold' }
   if (tone === 'na') return { fillColor:[238, 242, 246], textColor:[100, 116, 139], fontStyle:'bold' }

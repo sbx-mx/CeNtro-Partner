@@ -65,7 +65,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <img src={`${import.meta.env.BASE_URL}assets/CeNtro Partner.png`} alt="Logotipo CeNtro Partner" width="56" height="56" decoding="async" className="app-logo h-14 w-14 shrink-0 object-contain" />
+          <img src={`${import.meta.env.BASE_URL}icons/icon-192.png`} alt="Logotipo CeNtro Partner" width="56" height="56" decoding="async" loading="eager" fetchPriority="high" className="app-logo h-14 w-14 shrink-0 object-contain" />
           <div className="campaign-heading" data-style={campaign.style}>
             <div className="campaign-lockup" aria-label={`${campaign.primary} ${campaign.accent}`}>
               <span style={{ color:campaign.primaryColor }}>{campaign.primary}</span>

@@ -14,7 +14,14 @@
     "docs/assets/index-DrvbW-_u.js",
     "docs/assets/index-Du3vMK3u.js",
     "docs/assets/index-IF30cEyd.css",
+    "docs/assets/CeNtro Partner.png",
     "docs/workbox-9e0cfdd6.js",
-    "docs/workbox-e4022e15.js"
+    "docs/workbox-e4022e15.js",
+    "public/assets/CeNtro Partner.png",
+    "excelService.ts",
+    "index.css",
+    "pages/RankingPage.tsx",
+    "tsconfig.app.tsbuildinfo",
+    "tsconfig.node.tsbuildinfo"
   ]
 }

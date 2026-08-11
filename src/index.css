@@ -18,6 +18,7 @@ body{margin:0;min-width:320px}
 .filter-label{@apply text-xs font-semibold uppercase tracking-wide text-slate-500}
 .primary-button{@apply inline-flex items-center justify-center gap-2 rounded-xl bg-starbucks px-4 py-2.5 text-sm font-bold text-white transition hover:bg-starbucks-dark}
 .section-heading{@apply mb-0 flex flex-wrap items-center justify-between gap-3}
+.section-heading>div:last-child{flex-wrap:wrap;justify-content:flex-end}
 .section-title{@apply m-0 text-lg font-bold text-slate-900}
 .print-context{display:none}
 .eyebrow{@apply mb-1 text-xs font-semibold uppercase tracking-widest text-starbucks}
@@ -269,6 +270,10 @@ body{margin:0;min-width:320px}
   height:13px;
   place-items:center;
   color:#006241;
+}
+@media(max-width:900px){
+  .section-heading{align-items:flex-start}
+  .section-heading>div:last-child{width:100%;justify-content:flex-start}
 }
 @media(max-width:640px){
   .app-footer{display:grid;padding:1rem}

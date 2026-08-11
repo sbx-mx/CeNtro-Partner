@@ -307,6 +307,7 @@ export function RankingPage() {
         indicators:displayedIndicators.map(indicator => ({ name:visibleIndicatorName(indicator.indicator), group:indicator.pillar })),
         rows:pdfRows,
         averageRow,
+        logoUrl:`${import.meta.env.BASE_URL}icons/icon-192.png`,
       })
     } catch (pdfExportError) {
       console.error(pdfExportError)

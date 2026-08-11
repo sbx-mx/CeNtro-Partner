@@ -25,6 +25,7 @@ export interface RankingPdfInput {
   indicators: RankingPdfIndicator[]
   rows: RankingPdfRow[]
   averageRow?: RankingPdfRow
+  logoUrl?: string
 }
 
 type Rgb = [number, number, number]
@@ -60,7 +61,7 @@ function pdfCell(cell: RankingPdfCell): CellDef {
   return { content:cell.value || '—', styles:cellStyle(cell.tone) }
 }
 
-function buildBodyRow(row: RankingPdfRow, average = false): RowInput {
+function buildBodyRow(row: RankingPdfRow, average = false, showComparison = true): RowInput {
   return [
     {
       content:row.store,
@@ -70,11 +71,11 @@ function buildBodyRow(row: RankingPdfRow, average = false): RowInput {
     },
     ...row.indicators.map(pdfCell),
     pdfCell(row.compliance),
-    pdfCell(row.comparison),
+    ...(showComparison ? [pdfCell(row.comparison)] : []),
   ]
 }
 
-function groupedHeader(indicators: RankingPdfIndicator[]): RowInput[] {
+function groupedHeader(indicators: RankingPdfIndicator[], showComparison: boolean): RowInput[] {
   return [
     [
       { content:'TIENDA', styles:{ fillColor:deepGreen, textColor:white } },
@@ -86,16 +87,30 @@ function groupedHeader(indicators: RankingPdfIndicator[]): RowInput[] {
         },
       })),
       { content:'CUMPLIMIENTO', styles:{ fillColor:deepGreen, textColor:white } },
-      { content:'VS MES ANTERIOR', styles:{ fillColor:deepGreen, textColor:white } },
+      ...(showComparison ? [{ content:'VS MES ANTERIOR', styles:{ fillColor:deepGreen, textColor:white } }] : []),
     ],
   ]
 }
 
-function storeColumnWidth(rows: RankingPdfRow[], available: number, indicatorCount: number) {
+function storeColumnWidth(rows: RankingPdfRow[], available: number, indicatorCount: number, fixedWidth: number) {
   const longest = Math.max(10, ...rows.map(row => row.store.length))
   const contentWidth = Math.min(160, Math.max(105, 55 + longest * 2.25))
   const minimumIndicators = indicatorCount * 28
-  return Math.min(contentWidth, Math.max(100, available - minimumIndicators - 138))
+  return Math.min(contentWidth, Math.max(100, available - minimumIndicators - fixedWidth))
+}
+
+async function imageDataUrl(source?: string) {
+  if (!source) return null
+  if (source.startsWith('data:image/')) return source
+  const response = await fetch(source, { cache:'force-cache' })
+  if (!response.ok) throw new Error(`No se pudo cargar el logotipo: HTTP ${response.status}`)
+  const blob = await response.blob()
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Formato de imagen no válido'))
+    reader.onerror = () => reject(reader.error ?? new Error('No se pudo leer el logotipo'))
+    reader.readAsDataURL(blob)
+  })
 }
 
 export async function createRankingPdf(input: RankingPdfInput) {
@@ -109,37 +124,40 @@ export async function createRankingPdf(input: RankingPdfInput) {
   const pageHeight = doc.internal.pageSize.getHeight()
   const marginX = 20
   const tableWidth = pageWidth - marginX * 2
+  const showComparison = input.period.trim().toUpperCase() !== 'YTD'
   const complianceWidth = 66
-  const comparisonWidth = 74
+  const comparisonWidth = showComparison ? 74 : 0
   const allRows = input.averageRow ? [input.averageRow, ...input.rows] : input.rows
-  const storeWidth = storeColumnWidth(allRows, tableWidth, input.indicators.length)
+  const storeWidth = storeColumnWidth(allRows, tableWidth, input.indicators.length, complianceWidth + comparisonWidth)
   const indicatorWidth = Math.max(26, (tableWidth - storeWidth - complianceWidth - comparisonWidth) / Math.max(1, input.indicators.length))
   const fontSize = input.indicators.length >= 14 ? 5.5 : input.indicators.length >= 10 ? 6.2 : 7
   const columnStyles: Record<number, Partial<Styles>> = {
     0:{ cellWidth:storeWidth, overflow:'linebreak', halign:'left' },
     [input.indicators.length + 1]:{ cellWidth:complianceWidth },
-    [input.indicators.length + 2]:{ cellWidth:comparisonWidth, overflow:'linebreak' },
   }
+  if (showComparison) columnStyles[input.indicators.length + 2] = { cellWidth:comparisonWidth, overflow:'linebreak' }
   input.indicators.forEach((_, index) => { columnStyles[index + 1] = { cellWidth:indicatorWidth } })
 
   const filterLine = input.filters.filter(Boolean).join(' · ')
+  const logo = await imageDataUrl(input.logoUrl).catch(() => null)
   const drawPageHeader = () => {
     doc.setTextColor(...deepGreen)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
-    doc.text('CeNtro Partner · Ranking Regional', marginX, 19)
+    doc.text('CeNtro Partner · Ranking Regional', marginX, 19, { maxWidth:tableWidth - 38 })
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7.2)
     doc.setTextColor(72, 96, 86)
-    doc.text(`Resultados ${input.period}${filterLine ? ` · ${filterLine}` : ''}`, marginX, 32, { maxWidth:tableWidth })
+    doc.text(`Resultados ${input.period}${filterLine ? ` · ${filterLine}` : ''}`, marginX, 32, { maxWidth:tableWidth - 38 })
+    if (logo) doc.addImage(logo, 'PNG', pageWidth - marginX - 28, 6, 28, 28, 'centro-partner-logo', 'FAST')
     doc.setDrawColor(...softRule)
     doc.setLineWidth(.5)
     doc.line(marginX, 39, pageWidth - marginX, 39)
   }
   const charsPerStoreLine = Math.max(18, Math.floor(storeWidth / (fontSize * .58)))
   const bodyEntries = [
-    ...(input.averageRow ? [{ row:input.averageRow, tableRow:buildBodyRow(input.averageRow, true) }] : []),
-    ...input.rows.map(row => ({ row, tableRow:buildBodyRow(row) })),
+    ...(input.averageRow ? [{ row:input.averageRow, tableRow:buildBodyRow(input.averageRow, true, showComparison) }] : []),
+    ...input.rows.map(row => ({ row, tableRow:buildBodyRow(row, false, showComparison) })),
   ]
   const bodyPages: RowInput[][] = []
   let pageRows: RowInput[] = []
@@ -147,7 +165,7 @@ export async function createRankingPdf(input: RankingPdfInput) {
   const bodyHeightBudget = pageHeight - 49 - 38 - 22
   for (const entry of bodyEntries) {
     const storeLines = Math.max(1, Math.ceil(entry.row.store.length / charsPerStoreLine))
-    const comparisonLines = Math.max(1, entry.row.comparison.value.split('\n').length)
+    const comparisonLines = showComparison ? Math.max(1, entry.row.comparison.value.split('\n').length) : 1
     const estimatedHeight = Math.max(15, Math.max(storeLines, comparisonLines) * fontSize * 1.25 + 6.2)
     if (pageRows.length && usedHeight + estimatedHeight > bodyHeightBudget) {
       bodyPages.push(pageRows)
@@ -163,7 +181,7 @@ export async function createRankingPdf(input: RankingPdfInput) {
     if (pageIndex) doc.addPage('letter', 'landscape')
     drawPageHeader()
     autoTable(doc, {
-      head:groupedHeader(input.indicators),
+      head:groupedHeader(input.indicators, showComparison),
       body:rows,
       startY:49,
       margin:{ top:49, right:marginX, bottom:38, left:marginX },

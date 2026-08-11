@@ -37,6 +37,7 @@ export default defineConfig({
         // El Excel se actualiza de forma independiente mediante NetworkFirst;
         // no debe quedar fijado a una revisión del precaché.
         globPatterns: ['**/*.{js,css,html,json,png,svg}'],
+        globIgnores: ['assets/CeNtro Partner.png'],
         navigateFallback: 'index.html',
         runtimeCaching: [
           {

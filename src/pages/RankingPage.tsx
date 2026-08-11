@@ -256,7 +256,7 @@ export function RankingPage() {
     setExportingPdf(true)
     setPdfError('')
     try {
-      const pdfRows: RankingPdfRow[] = sortedStores.map(store => {
+      const pdfRows: RankingPdfRow[] = sortedStores.map((store, position) => {
         const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
         const comparison = complianceComparison(store)
         const complianceTone: PdfTone = store.compliance >= quartiles.q3
@@ -265,7 +265,7 @@ export function RankingPage() {
             ? 'average'
             : store.compliance < quartiles.q1 ? 'bad' : 'neutral'
         return {
-          store:store.Tienda.trim(),
+          store:`#${position + 1}  ${store.Tienda.trim()}`,
           indicators:displayedIndicators.map(template => {
             const item = indicatorMap.get(template.indicator)
             return item
@@ -409,9 +409,9 @@ export function RankingPage() {
           })}
           <td className="column-average-compliance"><strong>{storesWithCompliance.length ? `${(columnComplianceAverage * 100).toFixed(1)}%` : '—'}</strong></td>
           <td className="column-average-comparison">{averageComparison ? <><strong className={Math.abs(averageComparison.deltaPoints) < .05 ? 'is-flat' : averageComparison.deltaPoints > 0 ? 'is-up' : 'is-down'}>{averageComparison.deltaPoints > 0 ? '+' : ''}{averageComparison.deltaPoints.toFixed(1)} pp</strong><small>vs {averageComparison.previousMonth.toUpperCase()}</small></> : <strong>—</strong>}</td>
-        </tr>}{sortedStores.map(store => {
+        </tr>}{sortedStores.map((store, position) => {
           const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
-          return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-name">{store.Tienda.trim()}</span></td>
+          return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-cell-content"><span className="ranking-position" aria-label={`Posición ${position + 1}`}>#{position + 1}</span><span className="store-name">{store.Tienda.trim()}</span></span></td>
             {displayedIndicators.map(indicator => {
               const current = indicatorMap.get(indicator.indicator) ?? indicator
               const trendTitle = current.previousMonth ? `Mes anterior ${current.previousMonth.toUpperCase()}: ${previousLabel(current) || 'sin dato'}` : current.detailValue

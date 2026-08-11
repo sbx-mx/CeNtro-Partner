@@ -46,7 +46,7 @@ body{margin:0;min-width:320px}
 .status-row.done{@apply border-emerald-200 bg-emerald-50 text-emerald-700}
 .status-dot{@apply h-5 w-5 rounded-full border-2 border-current}
 .ranking-scroll{overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;contain:layout paint style}
-.ranking-table{--store-column-width:clamp(212px,16vw,284px);width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;text-align:center;font-size:.78rem;font-variant-numeric:tabular-nums}
+.ranking-table{--store-column-width:clamp(190px,14vw,244px);width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;text-align:center;font-size:.78rem;font-variant-numeric:tabular-nums}
 .ranking-table th{white-space:nowrap;border-right:1px solid #d9e3de;border-bottom:1px solid #c7d4ce;padding:.7rem .65rem;background:#f8fafc;color:#41544c;font-size:.68rem;font-weight:850;text-transform:uppercase;letter-spacing:.055em}
 .ranking-table td{min-width:88px;border-right:1px solid #edf2f7;border-bottom:1px solid #edf2f7;padding:.65rem;white-space:nowrap;background:#fff}
 .ranking-table tbody tr:hover td{background:#f8fafc}
@@ -110,7 +110,7 @@ body{margin:0;min-width:320px}
 .ranking-table .store-col{width:var(--store-column-width);min-width:var(--store-column-width)!important;max-width:var(--store-column-width)}
 .ranking-table .store-header{font-size:.82rem;letter-spacing:.1em;text-align:center!important;vertical-align:middle}
 .ranking-table td.store-col{vertical-align:middle;line-height:1.25}
-.store-name{vertical-align:middle;overflow-wrap:anywhere}
+.store-name{min-width:0;vertical-align:middle;overflow-wrap:anywhere}
 .indicator-sort-button span{font-size:.76rem;font-weight:900;letter-spacing:.045em}
 .indicator-sort-button svg{flex:0 0 auto;margin-bottom:.05rem}
 .ranking-table .indicator-header.is-sortable{background:#f1f5f3}
@@ -241,6 +241,8 @@ body{margin:0;min-width:320px}
 .ranking-table .store-col{width:var(--store-column-width);min-width:var(--store-column-width)!important;max-width:var(--store-column-width)}
 .ranking-table td.store-col{white-space:normal!important}
 .store-name{display:block;font-size:.84rem;font-weight:850;line-height:1.28;letter-spacing:-.008em}
+.store-cell-content{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:.48rem}
+.ranking-position{display:inline-grid;min-width:2rem;height:1.55rem;place-items:center;border:1px solid #b9d5c8;border-radius:999px;background:#edf7f2;color:#006241;font-size:.66rem;font-weight:950;font-variant-numeric:tabular-nums;line-height:1}
 .ranking-table tbody td.store-col{background:#fffdfa;border-right:1px solid #dce7e2;padding-left:.8rem}
 .ranking-table tbody tr:hover td.store-col{background:#f5faf7!important;color:#004c34}
 .ranking-table td.empty-ranking{padding:2.2rem!important;background:#f8fafc!important;color:#64748b;font-size:.85rem;font-weight:750;text-align:center}
@@ -280,7 +282,7 @@ body{margin:0;min-width:320px}
   .suggestions-link{justify-self:start}
   .app-status{max-width:7.5rem}
   .network-status,.update-status{font-size:.66rem;padding:.4rem .55rem}
-  .ranking-table{--store-column-width:clamp(184px,58vw,220px)}
+  .ranking-table{--store-column-width:clamp(180px,55vw,210px)}
   .ranking-search{order:3;width:100%}
   .executive-filter-heading{grid-template-columns:1fr}
   .store-name{font-size:.82rem}

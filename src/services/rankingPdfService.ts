@@ -78,7 +78,7 @@ function buildBodyRow(row: RankingPdfRow, average = false, showComparison = true
 function groupedHeader(indicators: RankingPdfIndicator[], showComparison: boolean): RowInput[] {
   return [
     [
-      { content:'TIENDA', styles:{ fillColor:deepGreen, textColor:white } },
+      { content:'#  TIENDA', styles:{ fillColor:deepGreen, textColor:white } },
       ...indicators.map(indicator => ({
         content:indicator.name,
         styles:{
@@ -94,9 +94,9 @@ function groupedHeader(indicators: RankingPdfIndicator[], showComparison: boolea
 
 function storeColumnWidth(rows: RankingPdfRow[], available: number, indicatorCount: number, fixedWidth: number) {
   const longest = Math.max(10, ...rows.map(row => row.store.length))
-  const contentWidth = Math.min(160, Math.max(105, 55 + longest * 2.25))
+  const contentWidth = Math.min(138, Math.max(112, 52 + longest * 1.45))
   const minimumIndicators = indicatorCount * 28
-  return Math.min(contentWidth, Math.max(100, available - minimumIndicators - fixedWidth))
+  return Math.min(contentWidth, Math.max(108, available - minimumIndicators - fixedWidth))
 }
 
 async function imageDataUrl(source?: string) {
@@ -129,14 +129,21 @@ export async function createRankingPdf(input: RankingPdfInput) {
   const comparisonWidth = showComparison ? 74 : 0
   const allRows = input.averageRow ? [input.averageRow, ...input.rows] : input.rows
   const storeWidth = storeColumnWidth(allRows, tableWidth, input.indicators.length, complianceWidth + comparisonWidth)
-  const indicatorWidth = Math.max(26, (tableWidth - storeWidth - complianceWidth - comparisonWidth) / Math.max(1, input.indicators.length))
   const fontSize = input.indicators.length >= 14 ? 5.5 : input.indicators.length >= 10 ? 6.2 : 7
+  const headerFontSize = Math.max(5.1, fontSize - .25)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(headerFontSize)
+  const indicatorSpace = tableWidth - storeWidth - complianceWidth - comparisonWidth
+  const naturalIndicatorWidths = input.indicators.map(indicator => Math.max(26, doc.getTextWidth(indicator.name) + 5.4))
+  const naturalWidthTotal = naturalIndicatorWidths.reduce((sum, width) => sum + width, 0)
+  const distributableSpace = Math.max(0, indicatorSpace - naturalWidthTotal)
+  const indicatorWidths = naturalIndicatorWidths.map(width => width + distributableSpace / Math.max(1, input.indicators.length))
   const columnStyles: Record<number, Partial<Styles>> = {
     0:{ cellWidth:storeWidth, overflow:'linebreak', halign:'left' },
     [input.indicators.length + 1]:{ cellWidth:complianceWidth },
   }
   if (showComparison) columnStyles[input.indicators.length + 2] = { cellWidth:comparisonWidth, overflow:'linebreak' }
-  input.indicators.forEach((_, index) => { columnStyles[index + 1] = { cellWidth:indicatorWidth } })
+  input.indicators.forEach((_, index) => { columnStyles[index + 1] = { cellWidth:indicatorWidths[index] } })
 
   const filterLine = input.filters.filter(Boolean).join(' · ')
   const logo = await imageDataUrl(input.logoUrl).catch(() => null)
@@ -205,9 +212,10 @@ export async function createRankingPdf(input: RankingPdfInput) {
         fillColor:[240, 245, 242],
         textColor:[43, 75, 63],
         fontStyle:'bold',
-        fontSize:Math.max(5.1, fontSize - .25),
+        fontSize:headerFontSize,
         minCellHeight:18,
         lineColor:[187, 210, 200],
+        overflow:'hidden',
       },
       bodyStyles:{ minCellHeight:15 },
       columnStyles,

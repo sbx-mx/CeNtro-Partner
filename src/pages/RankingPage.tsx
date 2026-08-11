@@ -257,11 +257,17 @@ export function RankingPage() {
         </div>
       </div>
       <div className="ranking-scroll"><table className="ranking-table">
+        <colgroup>
+          <col className="store-column-layout" />
+          {displayedIndicators.map(indicator => <col key={indicator.indicator} className="indicator-column-layout" />)}
+          <col className="compliance-column-layout" />
+          <col className="comparison-column-layout" />
+        </colgroup>
         <thead><tr className="group-row"><th rowSpan={2} className="sticky-col store-col store-header">Tienda</th>
           {activeGroups.map(group => {
             const count = displayedIndicators.filter(indicator => indicator.pillar === group).length
             return count ? <th key={group} colSpan={count} className={`group-${group.toLowerCase()}`}>{group}</th> : null
-          })}<th colSpan={1} className="group-gestion">Gestión</th></tr>
+          })}<th colSpan={2} className="group-gestion">Gestión</th></tr>
           <tr className="indicator-header-row">{displayedIndicators.map(indicator => {
             const sortable = ['Efectividad','Rotacion','Conexion','Bebida','OMT','COGS','Segundas Cx'].includes(indicator.indicator)
             const active = sortColumn === indicator.indicator
@@ -270,7 +276,8 @@ export function RankingPage() {
                 <span className="indicator-sort-label">{visibleIndicatorName(indicator.indicator)}</span><span className="indicator-sort-icon" aria-hidden="true">{active && (sortDirection === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}</span>
               </button> : <span className="indicator-static-label">{visibleIndicatorName(indicator.indicator)}</span>}
             </th>
-          })}<th className="compliance-header"><button type="button" onClick={toggleComplianceSort} className="inline-flex items-center gap-1.5" title={sortColumn === 'compliance' && sortDirection === 'desc' ? 'Ordenar de menor a mayor' : 'Ordenar de mayor a menor'}>Cumplimiento {sortColumn === 'compliance' && sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}</button></th></tr></thead>
+          })}<th className="compliance-header"><button type="button" onClick={toggleComplianceSort} className="inline-flex items-center gap-1.5" title={sortColumn === 'compliance' && sortDirection === 'desc' ? 'Ordenar de menor a mayor' : 'Ordenar de mayor a menor'}>Cumplimiento {sortColumn === 'compliance' && sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}</button></th>
+          <th className="comparison-header"><span>vs mes anterior</span></th></tr></thead>
         <tbody>{sortedStores.map(store => {
           const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
           return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-name">{store.Tienda.trim()}</span></td>
@@ -285,19 +292,24 @@ export function RankingPage() {
               </td>
             })}{(() => {
               const comparison = complianceComparison(store)
-              return <td
+              return <>
+              <td
               className="compliance-cell"
               style={complianceQuartileStyle(store.compliance, quartiles)}
-              title={comparison
+              title={`Cuartiles visibles: Q1 ${(quartiles.q1 * 100).toFixed(1)}% · Q2 ${(quartiles.q2 * 100).toFixed(1)}% · Q3 ${(quartiles.q3 * 100).toFixed(1)}%`}
+            ><div className="compliance-meter" aria-label={`Cumplimiento ${(store.compliance * 100).toFixed(1)}%`}><span className="compliance-progress" aria-hidden="true" /><span className="compliance-value">{(store.compliance * 100).toFixed(1)}%</span></div></td>
+              <td className="comparison-cell" title={comparison
                 ? `Mes anterior ${comparison.previousMonth.toUpperCase()}: ${(comparison.previousCompliance * 100).toFixed(1)}% · Variación ${comparison.deltaPoints >= 0 ? '+' : ''}${comparison.deltaPoints.toFixed(1)} puntos porcentuales`
-                : `Cuartiles visibles: Q1 ${(quartiles.q1 * 100).toFixed(1)}% · Q2 ${(quartiles.q2 * 100).toFixed(1)}% · Q3 ${(quartiles.q3 * 100).toFixed(1)}%`}
-            ><div className="compliance-meter" aria-label={`Cumplimiento ${(store.compliance * 100).toFixed(1)}%`}><span className="compliance-progress" aria-hidden="true" /><span className="compliance-value">{(store.compliance * 100).toFixed(1)}%</span></div>
-              {comparison && <span className={`compliance-comparison ${Math.abs(comparison.deltaPoints) < .05 ? 'is-flat' : comparison.deltaPoints > 0 ? 'is-up' : 'is-down'}`}>
-                {Math.abs(comparison.deltaPoints) < .05 ? 'Se mantiene' : `${comparison.deltaPoints > 0 ? '+' : ''}${comparison.deltaPoints.toFixed(1)} pp`} <small>vs {comparison.previousMonth.toUpperCase()}</small>
-              </span>}
-            </td>
+                : selectedPeriod === 'YTD' ? 'La comparación mensual no aplica en YTD.' : 'No existe una base comparable del mes anterior.'}>
+                {comparison ? <div className={`comparison-dashboard ${Math.abs(comparison.deltaPoints) < .05 ? 'is-flat' : comparison.deltaPoints > 0 ? 'is-up' : 'is-down'}`}>
+                  <span className="comparison-direction" aria-hidden="true">{Math.abs(comparison.deltaPoints) < .05 ? <Minus size={13} /> : comparison.deltaPoints > 0 ? <ArrowUp size={13} /> : <ArrowDown size={13} />}</span>
+                  <strong>{Math.abs(comparison.deltaPoints) < .05 ? '0.0 pp' : `${comparison.deltaPoints > 0 ? '+' : ''}${comparison.deltaPoints.toFixed(1)} pp`}</strong>
+                  <small>{Math.abs(comparison.deltaPoints) < .05 ? 'Se mantiene' : `${comparison.previousMonth.toUpperCase()} ${(comparison.previousCompliance * 100).toFixed(1)}%`}</small>
+                </div> : <span className="comparison-empty">{selectedPeriod === 'YTD' ? 'YTD' : 'Sin base'}</span>}
+              </td>
+              </>
             })()}</tr>
-        })}{!sortedStores.length && <tr><td colSpan={displayedIndicators.length + 2} className="empty-ranking">No se encontraron tiendas con esa búsqueda.</td></tr>}</tbody>
+        })}{!sortedStores.length && <tr><td colSpan={displayedIndicators.length + 3} className="empty-ranking">No se encontraron tiendas con esa búsqueda.</td></tr>}</tbody>
       </table></div>
     </section>
   </div>

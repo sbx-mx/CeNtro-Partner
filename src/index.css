@@ -44,16 +44,18 @@ body{margin:0;min-width:320px}
 .status-row.done{@apply border-emerald-200 bg-emerald-50 text-emerald-700}
 .status-dot{@apply h-5 w-5 rounded-full border-2 border-current}
 .ranking-scroll{overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;contain:layout paint style}
-.ranking-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;text-align:center;font-size:.78rem}
-.ranking-table th{white-space:nowrap;border-right:1px solid #e2e8f0;border-bottom:1px solid #cbd5e1;padding:.7rem .65rem;background:#f8fafc;color:#475569;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.035em}
+.ranking-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;text-align:center;font-size:.78rem;font-variant-numeric:tabular-nums}
+.ranking-table th{white-space:nowrap;border-right:1px solid #d9e3de;border-bottom:1px solid #c7d4ce;padding:.7rem .65rem;background:#f8fafc;color:#41544c;font-size:.68rem;font-weight:850;text-transform:uppercase;letter-spacing:.055em}
 .ranking-table td{min-width:88px;border-right:1px solid #edf2f7;border-bottom:1px solid #edf2f7;padding:.65rem;white-space:nowrap;background:#fff}
 .ranking-table tbody tr:hover td{background:#f8fafc}
 .ranking-table .sticky-col{position:sticky;left:0;z-index:3;text-align:left}
 .ranking-table thead .sticky-col{z-index:5}
-.store-col{min-width:260px!important;max-width:310px;white-space:normal!important}
+.store-col{min-width:236px!important;max-width:236px;white-space:normal!important}
+.store-column-layout{width:236px}.indicator-column-layout{width:50px}.compliance-column-layout{width:122px}.comparison-column-layout{width:112px}
 .group-row th{color:#fff;border-bottom:0}
 .group-row .store-col{background:#004c34}
 .group-partner{background:#006241!important}.group-cliente{background:#18794e!important}.group-negocio{background:#2f6b56!important}.group-gestion{background:#004c34!important}
+.group-row th{height:44px;font-size:.66rem;font-weight:900;letter-spacing:.1em}
 .indicator-cell{color:#94a3b8}
 .indicator-cell.is-ok{background:#e8f5ee!important;color:#087443;font-weight:800}
 .indicator-cell.is-bad{background:#fdecec!important;color:#b42318;font-weight:800}
@@ -98,20 +100,20 @@ body{margin:0;min-width:320px}
 .trend-marker.is-up{color:#087443}.trend-marker.is-down{color:#b42318}.trend-marker.is-flat{color:#64748b}
 .ranking-table .compliance-header,
 .ranking-table .compliance-cell{
-  width:110px;
-  min-width:110px!important;
-  max-width:110px;
+  width:122px;
+  min-width:122px!important;
+  max-width:122px;
   text-align:center;
 }
 .ranking-table .store-col{
-  width:280px;
-  min-width:280px!important;
-  max-width:310px;
+  width:236px;
+  min-width:236px!important;
+  max-width:236px;
 }
-.ranking-table .store-header{font-size:.9rem;letter-spacing:.06em;text-align:center!important;vertical-align:middle}
+.ranking-table .store-header{font-size:.82rem;letter-spacing:.1em;text-align:center!important;vertical-align:middle}
 .ranking-table td.store-col{vertical-align:middle;line-height:1.25}
 .store-name{vertical-align:middle;overflow-wrap:anywhere}
-.indicator-sort-button span{font-size:.8rem;font-weight:900}
+.indicator-sort-button span{font-size:.76rem;font-weight:900;letter-spacing:.045em}
 .indicator-sort-button svg{flex:0 0 auto;margin-bottom:.05rem}
 .ranking-table .indicator-header.is-sortable{background:#f1f5f3}
 .group-row th{
@@ -177,8 +179,18 @@ body{margin:0;min-width:320px}
   opacity:.22;
 }
 .compliance-value{position:relative;z-index:1;font-weight:900;letter-spacing:.01em}
-.compliance-comparison{display:flex;align-items:center;justify-content:center;gap:.18rem;margin-top:.3rem;font-size:.61rem;font-weight:900;line-height:1.05;white-space:nowrap}.compliance-comparison small{font-size:.55rem;font-weight:750}.compliance-comparison.is-up{color:#087443}.compliance-comparison.is-down{color:#b42318}.compliance-comparison.is-flat{color:#64748b}
+.comparison-header{width:112px;min-width:112px!important;max-width:112px;padding:.55rem!important;background:#f3f6f4!important;color:#385348!important;text-align:center!important;white-space:normal!important}
+.comparison-header span{display:block;max-width:6.4rem;margin:auto;font-size:.62rem;font-weight:900;line-height:1.2;letter-spacing:.055em}
+.comparison-cell{width:112px;min-width:112px!important;max-width:112px;padding:.36rem .42rem!important;background:#fbfaf6!important;text-align:center}
+.comparison-dashboard{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:.05rem .28rem;min-height:38px;border:1px solid #d7e3dd;border-radius:.7rem;background:#fff;padding:.3rem .42rem;color:#52635c;line-height:1}
+.comparison-direction{grid-row:1/3;display:grid;width:20px;height:20px;place-items:center;border-radius:999px;background:#eef4f1}
+.comparison-dashboard strong{justify-self:start;font-size:.74rem;font-weight:950;letter-spacing:-.015em}.comparison-dashboard small{justify-self:start;color:#66776f;font-size:.54rem;font-weight:750;letter-spacing:.015em}
+.comparison-dashboard.is-up{border-color:#acd5c1;background:#f2faf6;color:#087443}.comparison-dashboard.is-up .comparison-direction{background:#dff3e8;color:#087443}
+.comparison-dashboard.is-down{border-color:#efc2bd;background:#fff6f5;color:#b42318}.comparison-dashboard.is-down .comparison-direction{background:#fde4e1;color:#b42318}
+.comparison-dashboard.is-flat{border-color:#d7dedb;background:#f8faf9;color:#52635c}.comparison-dashboard.is-flat .comparison-direction{background:#edf1ef;color:#64748b}
+.comparison-empty{display:inline-flex;align-items:center;justify-content:center;min-height:32px;border-radius:999px;background:#eef2f0;padding:.35rem .6rem;color:#718078;font-size:.62rem;font-weight:850}
 .ranking-table tbody tr:hover .compliance-cell{background:var(--compliance-surface)!important}
+.ranking-table tbody tr:hover .comparison-cell{background:#f8f5ed!important}
 @media(min-width:1024px){
   .presentation-button,.presentation-exit-button{display:inline-flex}
   .presentation-mode .dashboard-summary,
@@ -216,9 +228,11 @@ body{margin:0;min-width:320px}
 }
 .store-age-toggle:hover{border-color:#8aa99d;background:#f3f8f5;color:#006241}
 .store-age-toggle.is-active{border-color:#70ad91;background:#e7f3ed;color:#006241;box-shadow:inset 0 0 0 1px rgba(0,98,65,.08)}
-.ranking-table .store-col{width:248px;min-width:248px!important;max-width:276px}
+.ranking-table .store-col{width:236px;min-width:236px!important;max-width:236px}
 .ranking-table td.store-col{white-space:normal!important}
-.store-name{display:block;font-size:.88rem;font-weight:850;line-height:1.3}
+.store-name{display:block;font-size:.84rem;font-weight:850;line-height:1.28;letter-spacing:-.008em}
+.ranking-table tbody td.store-col{background:#fffdfa;border-right:1px solid #dce7e2;padding-left:.8rem}
+.ranking-table tbody tr:hover td.store-col{background:#f5faf7!important;color:#004c34}
 .ranking-table td.empty-ranking{padding:2.2rem!important;background:#f8fafc!important;color:#64748b;font-size:.85rem;font-weight:750;text-align:center}
 .indicator-sort-button{
   position:relative;
@@ -252,7 +266,8 @@ body{margin:0;min-width:320px}
   .suggestions-link{justify-self:start}
   .app-status{max-width:7.5rem}
   .network-status,.update-status{font-size:.66rem;padding:.4rem .55rem}
-  .ranking-table .store-col{width:220px;min-width:220px!important;max-width:238px}
+  .ranking-table .store-col{width:200px;min-width:200px!important;max-width:200px}
+  .store-column-layout{width:200px}
   .ranking-search{order:3;width:100%}
   .executive-filter-heading{grid-template-columns:1fr}
   .store-name{font-size:.82rem}
@@ -274,6 +289,7 @@ body{margin:0;min-width:320px}
   .ranking-table th,.ranking-table td{padding:3px 2px!important}
   .ranking-table .store-col{position:static!important;width:1.8in!important;min-width:1.8in!important;max-width:1.8in!important}
   .ranking-table .indicator-header,.ranking-table td.indicator-cell{width:auto!important;min-width:0!important;max-width:none!important}
+  .ranking-table .comparison-header,.ranking-table .comparison-cell{width:.85in!important;min-width:.85in!important;max-width:.85in!important}
   .ranking-table .indicator-header{height:.95in!important}
   .trend-marker{top:1px;right:0;box-shadow:none}
   .compliance-meter{min-height:22px}

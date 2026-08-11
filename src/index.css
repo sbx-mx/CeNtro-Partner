@@ -19,6 +19,7 @@ body{margin:0;min-width:320px}
 .primary-button{@apply inline-flex items-center justify-center gap-2 rounded-xl bg-starbucks px-4 py-2.5 text-sm font-bold text-white transition hover:bg-starbucks-dark}
 .section-heading{@apply mb-0 flex flex-wrap items-center justify-between gap-3}
 .section-title{@apply m-0 text-lg font-bold text-slate-900}
+.print-context,.print-footer{display:none}
 .eyebrow{@apply mb-1 text-xs font-semibold uppercase tracking-widest text-starbucks}
 .campaign-heading{display:grid;align-items:center;grid-template-columns:auto auto;column-gap:.75rem}
 .campaign-lockup{display:flex;align-items:baseline;gap:.28rem;font-weight:950;letter-spacing:.045em;line-height:1;text-transform:uppercase}
@@ -197,7 +198,7 @@ body{margin:0;min-width:320px}
 .column-average-label{z-index:4!important;display:grid;align-content:center;gap:.15rem;padding:.55rem .8rem!important;border-right:1px solid #9fc6b5!important;background:linear-gradient(135deg,#e7f4ed,#f7fbf9)!important}
 .column-average-label strong{font-size:.78rem;font-weight:950;letter-spacing:.01em}.column-average-label small{color:#587266;font-size:.56rem;font-weight:750;line-height:1.25}
 .column-average-cell{width:50px;min-width:50px!important;max-width:50px;padding:.42rem .1rem!important;text-align:center}
-.column-average-cell strong{display:block;color:#006241;font-size:.72rem;font-weight:950;line-height:1.05}.column-average-cell small{display:block;margin-top:.18rem;color:#789087;font-size:.5rem;font-weight:750;line-height:1}
+.column-average-cell strong{display:block;color:#006241;font-size:.74rem;font-weight:950;line-height:1.05}
 .column-average-compliance,.column-average-comparison{padding:.4rem .35rem!important;text-align:center}
 .column-average-compliance{background:#e3f3eb!important}.column-average-compliance strong,.column-average-comparison strong{display:block;font-size:.76rem;font-weight:950}.column-average-compliance small,.column-average-comparison small{display:block;margin-top:.16rem;color:#657a71;font-size:.52rem;font-weight:750}
 .column-average-comparison{background:#fbf8ef!important}.column-average-comparison strong.is-up{color:#087443}.column-average-comparison strong.is-down{color:#b42318}.column-average-comparison strong.is-flat{color:#64748b}
@@ -284,25 +285,31 @@ body{margin:0;min-width:320px}
   .store-age-toggle{padding:.45rem .6rem}
 }
 
-@page{size:letter landscape;margin:.35in}
+@page{size:letter landscape;margin:.25in .22in .55in}
 @media print{
-  :root,body{background:#fff!important}
+  :root,body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   header,.app-footer,.dashboard-summary,.ranking-filters,.section-heading>div:last-child{display:none!important}
   main{max-width:none!important;padding:0!important}
   .card{border:0!important;border-radius:0!important;box-shadow:none!important}
-  .section-heading{padding:.1in 0!important;border:0!important}
-  .section-heading::after{content:"Reporte generado desde CeNtro Partner";color:#52635c;font-size:8pt;font-weight:700}
+  .section-heading{display:block!important;padding:.04in 0 .08in!important;border:0!important}
+  .section-heading .eyebrow{margin:0 0 .02in!important;font-size:5.5pt!important}.section-heading .section-title{font-size:10pt!important}
+  .print-context{display:block;margin:.02in 0 0;color:#52635c;font-size:6pt;font-weight:700}
   .ranking-scroll{overflow:visible!important;contain:none!important}
-  .ranking-table{width:100%!important;min-width:100%!important;font-size:6.5pt!important;table-layout:fixed}
+  .ranking-table{width:100%!important;min-width:0!important;font-size:5.25pt!important;table-layout:fixed}
+  .store-column-layout{width:15.5%!important}.indicator-column-layout{width:auto!important}.compliance-column-layout{width:7.8%!important}.comparison-column-layout{width:8.5%!important}
   .ranking-table thead{display:table-header-group}
   .ranking-table tr{break-inside:avoid;page-break-inside:avoid}
-  .ranking-table th,.ranking-table td{padding:3px 2px!important}
-  .ranking-table .store-col{position:static!important;width:1.8in!important;min-width:1.8in!important;max-width:1.8in!important}
+  .ranking-table th,.ranking-table td{padding:2.2px 1.4px!important}
+  .ranking-table .store-col{position:static!important;width:15.5%!important;min-width:0!important;max-width:none!important}
   .ranking-table .indicator-header,.ranking-table td.indicator-cell{width:auto!important;min-width:0!important;max-width:none!important}
-  .ranking-table .comparison-header,.ranking-table .comparison-cell{width:.85in!important;min-width:.85in!important;max-width:.85in!important}
-  .ranking-table .indicator-header{height:.95in!important}
-  .trend-marker{top:1px;right:0;box-shadow:none}
-  .compliance-meter{min-height:22px}
+  .ranking-table .compliance-header,.ranking-table .compliance-cell{width:7.8%!important;min-width:0!important;max-width:none!important}
+  .ranking-table .comparison-header,.ranking-table .comparison-cell{width:8.5%!important;min-width:0!important;max-width:none!important}
+  .ranking-table .indicator-header{height:.78in!important}.indicator-static-label,.indicator-sort-label{font-size:5pt!important}
+  .store-name{font-size:5.5pt!important;line-height:1.12!important}.trend-marker{display:none!important}
+  .compliance-meter{min-height:18px;border-radius:4px}.comparison-dashboard{grid-template-columns:1fr;min-height:24px;padding:2px}.comparison-direction{display:none}.comparison-dashboard strong{justify-self:center;font-size:5.4pt}.comparison-dashboard small{justify-self:center;font-size:4.3pt}
+  .column-average-label small{font-size:4.5pt}.column-average-cell strong,.column-average-compliance strong,.column-average-comparison strong{font-size:5.4pt}
+  .print-footer{position:fixed;right:0;bottom:-.4in;left:0;display:flex;align-items:center;justify-content:space-between;gap:.2in;height:.28in;border-top:1px solid #8fb7a6;color:#315c4b;font-size:5.5pt;letter-spacing:.015em}
+  .print-footer span{color:#006241;font-weight:900}
 }
 @media(prefers-reduced-motion:no-preference){
   .card,.control,button{transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease}

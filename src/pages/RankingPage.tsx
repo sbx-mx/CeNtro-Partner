@@ -280,7 +280,7 @@ export function RankingPage() {
 
     <section className="card overflow-hidden p-0">
       <div className="section-heading border-b border-slate-200 px-5 py-4">
-        <div><p className="eyebrow">Clasificación dinámica</p><h2 className="section-title">Ranking Regional</h2></div>
+        <div><p className="eyebrow">Clasificación dinámica</p><h2 className="section-title">Ranking Regional</h2><p className="print-context">{title} · {region}{dm !== 'Todos' ? ` · ${dm}` : ''}{storeType !== 'Todos' ? ` · ${storeType.replace('_',' ')}` : ''}</p></div>
         <div className="flex items-center gap-2">
           {presentationMode ? <button type="button" onClick={() => setPresentationMode(false)} className="presentation-exit-button"><X size={15} />Salir de presentación</button> : <button type="button" onClick={() => setPresentationMode(true)} className="presentation-button"><MonitorUp size={15} />Modo Presentación</button>}
           <button
@@ -326,13 +326,13 @@ export function RankingPage() {
           })}<th className="compliance-header"><button type="button" onClick={toggleComplianceSort} className="inline-flex items-center gap-1.5" title={sortColumn === 'compliance' && sortDirection === 'desc' ? 'Ordenar de menor a mayor' : 'Ordenar de mayor a menor'}>Cumplimiento {sortColumn === 'compliance' && sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}</button></th>
           <th className="comparison-header"><span>vs mes anterior</span></th></tr></thead>
         <tbody>{showColumnAverages && <tr className="column-average-row">
-          <td className="sticky-col store-col column-average-label"><strong>Promedio visible</strong><small>{visibleStores.length} {visibleStores.length === 1 ? 'tienda filtrada' : 'tiendas filtradas'} · sin N/A</small></td>
+          <td className="sticky-col store-col column-average-label"><strong>Promedio visible</strong><small>Sólo datos reales</small></td>
           {displayedIndicators.map(indicator => {
             const summary = columnAverages.get(indicator.indicator) ?? { display:'—', count:0 }
-            return <td key={indicator.indicator} className="column-average-cell" title={`Promedio de ${visibleIndicatorName(indicator.indicator)} con ${summary.count} ${summary.count === 1 ? 'dato real' : 'datos reales'}`}><strong>{summary.display}</strong><small>{summary.count ? `n=${summary.count}` : 'sin datos'}</small></td>
+            return <td key={indicator.indicator} className="column-average-cell" title={`Promedio de ${visibleIndicatorName(indicator.indicator)} con ${summary.count} ${summary.count === 1 ? 'dato real' : 'datos reales'}; N/A y vacíos excluidos`}><strong>{summary.display}</strong></td>
           })}
-          <td className="column-average-compliance"><strong>{storesWithCompliance.length ? `${(columnComplianceAverage * 100).toFixed(1)}%` : '—'}</strong><small>{storesWithCompliance.length ? `n=${storesWithCompliance.length}` : 'sin datos'}</small></td>
-          <td className="column-average-comparison">{averageComparison ? <><strong className={Math.abs(averageComparison.deltaPoints) < .05 ? 'is-flat' : averageComparison.deltaPoints > 0 ? 'is-up' : 'is-down'}>{averageComparison.deltaPoints > 0 ? '+' : ''}{averageComparison.deltaPoints.toFixed(1)} pp</strong><small>vs {averageComparison.previousMonth.toUpperCase()} · n={averageComparison.count}</small></> : <><strong>—</strong><small>no aplica</small></>}</td>
+          <td className="column-average-compliance"><strong>{storesWithCompliance.length ? `${(columnComplianceAverage * 100).toFixed(1)}%` : '—'}</strong></td>
+          <td className="column-average-comparison">{averageComparison ? <><strong className={Math.abs(averageComparison.deltaPoints) < .05 ? 'is-flat' : averageComparison.deltaPoints > 0 ? 'is-up' : 'is-down'}>{averageComparison.deltaPoints > 0 ? '+' : ''}{averageComparison.deltaPoints.toFixed(1)} pp</strong><small>vs {averageComparison.previousMonth.toUpperCase()}</small></> : <strong>—</strong>}</td>
         </tr>}{sortedStores.map(store => {
           const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
           return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-name">{store.Tienda.trim()}</span></td>
@@ -367,5 +367,9 @@ export function RankingPage() {
         })}{!sortedStores.length && <tr><td colSpan={displayedIndicators.length + 3} className="empty-ranking">No se encontraron tiendas con esa búsqueda.</td></tr>}</tbody>
       </table></div>
     </section>
+    <div className="print-footer" aria-hidden="true">
+      <strong>Diseñado por Jorge Alcantar Aguiar &amp; Enrique César Flores</strong>
+      <span>JUNTÉMONOS MÁS · #GreenApronService</span>
+    </div>
   </div>
 }

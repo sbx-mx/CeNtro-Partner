@@ -285,6 +285,8 @@ function evaluateSource(source: WorkbookSource, selection: Period[]): WorkbookRe
       previousValue:previous.value,
       previousDisplayValue:previous.displayValue,
       previousStatus:previous.status,
+      previousFulfilled:previous.fulfilled,
+      previousApplicable:previous.applicable,
       trend,
     }
   })))

@@ -152,6 +152,8 @@ body{margin:0;min-width:320px}
 .presentation-button:hover{border-color:#8aa99d;background:#f3f8f5;color:#006241}
 .presentation-exit-button{border:1px solid #006241;background:#006241;color:#fff}
 .presentation-exit-button:hover{background:#004c34}
+.trend-toggle{display:inline-flex;min-height:36px;align-items:center;gap:.45rem;border:1px solid #cbd5e1;border-radius:.65rem;background:#fff;padding:.5rem .75rem;color:#475569;font-size:.75rem;font-weight:850;cursor:pointer;transition:background-color .15s ease,border-color .15s ease,color .15s ease}
+.trend-toggle:hover{border-color:#8aa99d;background:#f3f8f5;color:#006241}.trend-toggle.is-active{border-color:#70ad91;background:#e7f3ed;color:#006241}.trend-toggle:disabled{border-color:#e2e8f0;background:#f8fafc;color:#94a3b8;cursor:not-allowed}
 .compliance-cell{
   padding:.42rem!important;
   background:var(--compliance-surface)!important;
@@ -175,6 +177,7 @@ body{margin:0;min-width:320px}
   opacity:.22;
 }
 .compliance-value{position:relative;z-index:1;font-weight:900;letter-spacing:.01em}
+.compliance-comparison{display:flex;align-items:center;justify-content:center;gap:.18rem;margin-top:.3rem;font-size:.61rem;font-weight:900;line-height:1.05;white-space:nowrap}.compliance-comparison small{font-size:.55rem;font-weight:750}.compliance-comparison.is-up{color:#087443}.compliance-comparison.is-down{color:#b42318}.compliance-comparison.is-flat{color:#64748b}
 .ranking-table tbody tr:hover .compliance-cell{background:var(--compliance-surface)!important}
 @media(min-width:1024px){
   .presentation-button,.presentation-exit-button{display:inline-flex}

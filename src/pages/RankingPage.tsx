@@ -1,5 +1,5 @@
-import { useDeferredValue, useMemo, useState, type CSSProperties } from 'react'
-import { ArrowDown, ArrowUp, Building2, CalendarOff, CircleGauge, FileDown, ListChecks, Minus, MonitorUp, Search, Trophy, X } from 'lucide-react'
+import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Building2, CalendarOff, CircleGauge, FileDown, ListChecks, Minus, MonitorUp, Search, Trophy, X } from 'lucide-react'
 import { LoadingPanel } from '../components/LoadingPanel'
 import { RecoveryPanel } from '../components/RecoveryPanel'
 import { StatCard } from '../components/StatCard'
@@ -113,6 +113,17 @@ function previousLabel(item: IndicatorValue) {
   return formatValue({ ...item, value:item.previousValue, displayValue:item.previousDisplayValue, status:item.previousStatus ?? 'blank' })
 }
 
+function complianceComparison(store: StoreResult) {
+  const previousMonth = store.indicators.find(indicator => indicator.previousMonth)?.previousMonth
+  if (!previousMonth) return null
+  const previousApplicable = store.indicators.reduce((sum,indicator) => sum + (indicator.previousApplicable ?? 0), 0)
+  const previousFulfilled = store.indicators.reduce((sum,indicator) => sum + (indicator.previousFulfilled ?? 0), 0)
+  if (!previousApplicable) return null
+  const previousCompliance = previousFulfilled / previousApplicable
+  const deltaPoints = (store.compliance - previousCompliance) * 100
+  return { previousMonth, previousCompliance, deltaPoints }
+}
+
 export function RankingPage() {
   const {
     data, stores, stage, error, retry, selectedPeriod, setSelectedPeriod,
@@ -123,7 +134,13 @@ export function RankingPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [presentationMode, setPresentationMode] = useState(false)
   const [storeQuery, setStoreQuery] = useState('')
+  const [showIndicatorTrends, setShowIndicatorTrends] = useState(() => localStorage.getItem('centro-partner-show-trends') !== 'false')
   const deferredStoreQuery = useDeferredValue(storeQuery)
+
+  useEffect(() => {
+    try { localStorage.setItem('centro-partner-show-trends', String(showIndicatorTrends)) }
+    catch { /* La preferencia visual no bloquea la navegación. */ }
+  }, [showIndicatorTrends])
 
   const displayedIndicators = useMemo(() => orderIndicators(
     stores[0]?.indicators
@@ -226,6 +243,14 @@ export function RankingPage() {
         <div><p className="eyebrow">Clasificación dinámica</p><h2 className="section-title">Ranking Regional</h2></div>
         <div className="flex items-center gap-2">
           {presentationMode ? <button type="button" onClick={() => setPresentationMode(false)} className="presentation-exit-button"><X size={15} />Salir de presentación</button> : <button type="button" onClick={() => setPresentationMode(true)} className="presentation-button"><MonitorUp size={15} />Modo Presentación</button>}
+          <button
+            type="button"
+            onClick={() => setShowIndicatorTrends(current => !current)}
+            className={`trend-toggle ${showIndicatorTrends ? 'is-active' : ''}`}
+            aria-pressed={showIndicatorTrends}
+            disabled={selectedPeriod === 'YTD'}
+            title={selectedPeriod === 'YTD' ? 'La comparación mensual no aplica en YTD' : 'Mostrar u ocultar flechas por indicador'}
+          ><ArrowUpDown size={15} />{showIndicatorTrends ? 'Ocultar flechas' : 'Mostrar flechas'}</button>
           <button type="button" onClick={() => setHideNewStores(current => !current)} className={`store-age-toggle ${hideNewStores ? 'is-active' : ''}`} aria-pressed={hideNewStores} title={`${newStoreCount} tiendas tienen menos de un año desde su fecha de apertura`}><CalendarOff size={15} />{hideNewStores ? 'Mostrar todas' : 'Ocultar tiendas < 1 año'}</button>
           <button type="button" onClick={() => window.print()} className="secondary-ranking-control pdf-button"><FileDown size={15} />Guardar PDF</button>
           <span className="secondary-ranking-control summary-chip">{visibleStores.length} tiendas</span>
@@ -254,15 +279,24 @@ export function RankingPage() {
               const trendTitle = current.previousMonth ? `Mes anterior ${current.previousMonth.toUpperCase()}: ${previousLabel(current) || 'sin dato'}` : current.detailValue
               return <td key={current.indicator} className={stateClass(current)} title={trendTitle}>
                 <span className="indicator-value">{formatValue(current)}</span>
-                {current.trend && current.trend !== 'unavailable' && <span className={`trend-marker is-${current.trend}`} aria-label={trendTitle}>
+                {showIndicatorTrends && current.trend && current.trend !== 'unavailable' && <span className={`trend-marker is-${current.trend}`} aria-label={trendTitle}>
                   {current.trend === 'up' ? <ArrowUp size={11} /> : current.trend === 'down' ? <ArrowDown size={11} /> : <Minus size={11} />}
                 </span>}
               </td>
-            })}<td
+            })}{(() => {
+              const comparison = complianceComparison(store)
+              return <td
               className="compliance-cell"
               style={complianceQuartileStyle(store.compliance, quartiles)}
-              title={`Cuartiles visibles: Q1 ${(quartiles.q1 * 100).toFixed(1)}% · Q2 ${(quartiles.q2 * 100).toFixed(1)}% · Q3 ${(quartiles.q3 * 100).toFixed(1)}%`}
-            ><div className="compliance-meter" aria-label={`Cumplimiento ${(store.compliance * 100).toFixed(1)}%`}><span className="compliance-progress" aria-hidden="true" /><span className="compliance-value">{(store.compliance * 100).toFixed(1)}%</span></div></td></tr>
+              title={comparison
+                ? `Mes anterior ${comparison.previousMonth.toUpperCase()}: ${(comparison.previousCompliance * 100).toFixed(1)}% · Variación ${comparison.deltaPoints >= 0 ? '+' : ''}${comparison.deltaPoints.toFixed(1)} puntos porcentuales`
+                : `Cuartiles visibles: Q1 ${(quartiles.q1 * 100).toFixed(1)}% · Q2 ${(quartiles.q2 * 100).toFixed(1)}% · Q3 ${(quartiles.q3 * 100).toFixed(1)}%`}
+            ><div className="compliance-meter" aria-label={`Cumplimiento ${(store.compliance * 100).toFixed(1)}%`}><span className="compliance-progress" aria-hidden="true" /><span className="compliance-value">{(store.compliance * 100).toFixed(1)}%</span></div>
+              {comparison && <span className={`compliance-comparison ${Math.abs(comparison.deltaPoints) < .05 ? 'is-flat' : comparison.deltaPoints > 0 ? 'is-up' : 'is-down'}`}>
+                {Math.abs(comparison.deltaPoints) < .05 ? 'Se mantiene' : `${comparison.deltaPoints > 0 ? '+' : ''}${comparison.deltaPoints.toFixed(1)} pp`} <small>vs {comparison.previousMonth.toUpperCase()}</small>
+              </span>}
+            </td>
+            })()}</tr>
         })}{!sortedStores.length && <tr><td colSpan={displayedIndicators.length + 2} className="empty-ranking">No se encontraron tiendas con esa búsqueda.</td></tr>}</tbody>
       </table></div>
     </section>

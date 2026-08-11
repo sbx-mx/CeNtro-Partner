@@ -31,6 +31,8 @@ export interface IndicatorValue {
   previousValue?: unknown
   previousDisplayValue?: string
   previousStatus?: 'cumple'|'no-cumple'|'na'|'blank'
+  previousFulfilled?: number
+  previousApplicable?: number
   trend?: 'up'|'down'|'flat'|'unavailable'
 }
 export interface StoreResult extends DirectoryRow {

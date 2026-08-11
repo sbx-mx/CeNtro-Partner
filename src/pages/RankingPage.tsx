@@ -4,6 +4,7 @@ import { LoadingPanel } from '../components/LoadingPanel'
 import { RecoveryPanel } from '../components/RecoveryPanel'
 import { StatCard } from '../components/StatCard'
 import { useData } from '../components/DataContext'
+import { downloadRankingPdf, type PdfTone, type RankingPdfRow } from '../services/rankingPdfService'
 import type { IndicatorValue, Month, Period, Pillar, StoreResult } from '../types'
 
 const months: Month[] = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -44,6 +45,12 @@ function stateClass(item: IndicatorValue) {
   if (item.status === 'no-cumple') return 'indicator-cell is-bad'
   if (item.status === 'na') return 'indicator-cell is-na'
   return 'indicator-cell'
+}
+function pdfIndicatorTone(item: IndicatorValue): PdfTone {
+  if (item.status === 'cumple') return 'ok'
+  if (item.status === 'no-cumple') return 'bad'
+  if (item.status === 'na') return 'na'
+  return 'neutral'
 }
 function selectionLabel(selection: Period) { return selection === 'YTD' ? 'YTD' : selection.toUpperCase() }
 function visibleIndicatorName(indicator: string) {
@@ -151,6 +158,8 @@ export function RankingPage() {
   const [storeQuery, setStoreQuery] = useState('')
   const [showIndicatorTrends, setShowIndicatorTrends] = useState(() => localStorage.getItem('centro-partner-show-trends') !== 'false')
   const [showColumnAverages, setShowColumnAverages] = useState(() => localStorage.getItem('centro-partner-show-averages') === 'true')
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [pdfError, setPdfError] = useState('')
   const deferredStoreQuery = useDeferredValue(storeQuery)
 
   useEffect(() => {
@@ -242,6 +251,71 @@ export function RankingPage() {
     setSortColumn('compliance')
   }
 
+  async function exportRankingPdf() {
+    if (!sortedStores.length || exportingPdf) return
+    setExportingPdf(true)
+    setPdfError('')
+    try {
+      const pdfRows: RankingPdfRow[] = sortedStores.map(store => {
+        const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
+        const comparison = complianceComparison(store)
+        const complianceTone: PdfTone = store.compliance >= quartiles.q3
+          ? 'ok'
+          : store.compliance >= quartiles.q2
+            ? 'average'
+            : store.compliance < quartiles.q1 ? 'bad' : 'neutral'
+        return {
+          store:store.Tienda.trim(),
+          indicators:displayedIndicators.map(template => {
+            const item = indicatorMap.get(template.indicator)
+            return item
+              ? { value:formatValue(item) || '—', tone:pdfIndicatorTone(item) }
+              : { value:'—', tone:'neutral' as const }
+          }),
+          compliance:{ value:`${(store.compliance * 100).toFixed(1)}%`, tone:complianceTone },
+          comparison:comparison
+            ? {
+              value:`${Math.abs(comparison.deltaPoints) < .05 ? '0.0' : `${comparison.deltaPoints > 0 ? '+' : ''}${comparison.deltaPoints.toFixed(1)}`} pp\n${comparison.previousMonth.toUpperCase()} ${(comparison.previousCompliance * 100).toFixed(1)}%`,
+              tone:Math.abs(comparison.deltaPoints) < .05 ? 'flat' : comparison.deltaPoints > 0 ? 'up' : 'down',
+            }
+            : { value:selectedPeriod === 'YTD' ? 'YTD' : 'Sin base', tone:'neutral' },
+        }
+      })
+      const averageRow: RankingPdfRow | undefined = showColumnAverages ? {
+        store:'Promedio',
+        indicators:displayedIndicators.map(indicator => ({
+          value:columnAverages.get(indicator.indicator)?.display ?? '—',
+          tone:'average',
+        })),
+        compliance:{ value:storesWithCompliance.length ? `${(columnComplianceAverage * 100).toFixed(1)}%` : '—', tone:'average' },
+        comparison:averageComparison
+          ? {
+            value:`${averageComparison.deltaPoints > 0 ? '+' : ''}${averageComparison.deltaPoints.toFixed(1)} pp\n${averageComparison.previousMonth.toUpperCase()}`,
+            tone:Math.abs(averageComparison.deltaPoints) < .05 ? 'flat' : averageComparison.deltaPoints > 0 ? 'up' : 'down',
+          }
+          : { value:'—', tone:'neutral' },
+      } : undefined
+      await downloadRankingPdf({
+        period:title,
+        filters:[
+          region === 'Todas' ? 'Todas las regiones' : `Región ${region}`,
+          dm === 'Todos' ? '' : `Distrito ${dm}`,
+          storeType === 'Todos' ? '' : `Tipo ${storeType.replace('_',' ')}`,
+          pillar === 'Todos' ? '' : `Pilar ${pillar}`,
+          storeQuery.trim() ? `Búsqueda ${storeQuery.trim()}` : '',
+        ],
+        indicators:displayedIndicators.map(indicator => ({ name:visibleIndicatorName(indicator.indicator), group:indicator.pillar })),
+        rows:pdfRows,
+        averageRow,
+      })
+    } catch (pdfExportError) {
+      console.error(pdfExportError)
+      setPdfError('No fue posible generar el PDF. Intenta nuevamente.')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   return <div className={presentationMode ? 'presentation-mode' : undefined}>
     <section className="dashboard-summary mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard label="Tiendas visibles" value={visibleStores.length} icon={Building2} />
@@ -299,8 +373,9 @@ export function RankingPage() {
             title={selectedPeriod === 'YTD' ? 'La comparación mensual no aplica en YTD' : 'Mostrar u ocultar flechas por indicador'}
           ><ArrowUpDown size={15} />{showIndicatorTrends ? 'Ocultar flechas' : 'Mostrar flechas'}</button>
           <button type="button" onClick={() => setHideNewStores(current => !current)} className={`store-age-toggle ${hideNewStores ? 'is-active' : ''}`} aria-pressed={hideNewStores} title={`${newStoreCount} tiendas tienen menos de un año desde su fecha de apertura`}><CalendarOff size={15} />{hideNewStores ? 'Mostrar todas' : 'Ocultar tiendas < 1 año'}</button>
-          <button type="button" onClick={() => window.print()} className="secondary-ranking-control pdf-button"><FileDown size={15} />Guardar PDF</button>
+          <button type="button" onClick={() => void exportRankingPdf()} className="secondary-ranking-control pdf-button" disabled={!sortedStores.length || exportingPdf} aria-busy={exportingPdf}><FileDown size={15} />{exportingPdf ? 'Generando PDF…' : 'Guardar PDF'}</button>
           <span className="secondary-ranking-control summary-chip">{visibleStores.length} tiendas</span>
+          {pdfError && <span className="pdf-export-error" role="status">{pdfError}</span>}
         </div>
       </div>
       <div className="ranking-scroll"><table className="ranking-table">
@@ -326,7 +401,7 @@ export function RankingPage() {
           })}<th className="compliance-header"><button type="button" onClick={toggleComplianceSort} className="inline-flex items-center gap-1.5" title={sortColumn === 'compliance' && sortDirection === 'desc' ? 'Ordenar de menor a mayor' : 'Ordenar de mayor a menor'}>Cumplimiento {sortColumn === 'compliance' && sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}</button></th>
           <th className="comparison-header"><span>vs mes anterior</span></th></tr></thead>
         <tbody>{showColumnAverages && <tr className="column-average-row">
-          <td className="sticky-col store-col column-average-label"><strong>Promedio visible</strong><small>Sólo datos reales</small></td>
+          <td className="sticky-col store-col column-average-label"><strong>Promedio</strong></td>
           {displayedIndicators.map(indicator => {
             const summary = columnAverages.get(indicator.indicator) ?? { display:'—', count:0 }
             return <td key={indicator.indicator} className="column-average-cell" title={`Promedio de ${visibleIndicatorName(indicator.indicator)} con ${summary.count} ${summary.count === 1 ? 'dato real' : 'datos reales'}; N/A y vacíos excluidos`}><strong>{summary.display}</strong></td>
@@ -367,9 +442,5 @@ export function RankingPage() {
         })}{!sortedStores.length && <tr><td colSpan={displayedIndicators.length + 3} className="empty-ranking">No se encontraron tiendas con esa búsqueda.</td></tr>}</tbody>
       </table></div>
     </section>
-    <div className="print-footer" aria-hidden="true">
-      <strong>Diseñado por Jorge Alcantar Aguiar &amp; Enrique César Flores</strong>
-      <span>JUNTÉMONOS MÁS · #GreenApronService</span>
-    </div>
   </div>
 }

@@ -43,9 +43,10 @@ def main() -> None:
     audit_destination.write_text(
         json.dumps(report, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )
+    directory_audit = next(item for item in report["sheets"] if item["sheet"] == "Directorio")
     print(json.dumps({
         "updated": str(destination),
-        "stores": report["sheets"][0]["validCeCos"],
+        "stores": directory_audit["validCeCos"],
         "warnings": report["warningCount"],
         "sha256": report["sha256"],
     }, ensure_ascii=False))

@@ -40,6 +40,19 @@ def json_value(value: Any) -> Any:
     return value
 
 
+def valid_opening_date(value: Any) -> bool:
+    if isinstance(value, (datetime, date)):
+        return True
+    text = str(value or "").strip()
+    for pattern in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
+        try:
+            datetime.strptime(text, pattern)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
 def audit_workbook(source: Path) -> dict[str, Any]:
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
     workbook = load_workbook(source, data_only=False, read_only=True)
@@ -49,7 +62,18 @@ def audit_workbook(source: Path) -> dict[str, Any]:
     missing_sheets = sorted(sheet for sheet in REQUIRED_SHEETS if normalized(sheet) not in available_sheets)
     sheets: list[dict[str, Any]] = []
     totals = Counter(rows=0, cells=0, blanks=0, formulas=0, numbers=0, text=0, dates=0)
-    directory_metadata = {"storeTypes": {}, "missingOpeningDates": [], "missingStoreTypes": []}
+    directory_metadata = {
+        "records": 0,
+        "regions": {},
+        "districts": {},
+        "storeTypes": {},
+        "missingNames": [],
+        "missingRegions": [],
+        "missingDistricts": [],
+        "missingOpeningDates": [],
+        "invalidOpeningDates": [],
+        "missingStoreTypes": [],
+    }
     missing_july_sheets: list[str] = []
 
     for sheet in workbook.worksheets:
@@ -97,20 +121,43 @@ def audit_workbook(source: Path) -> dict[str, Any]:
             missing_headers = [header for header in DIRECTORY_HEADERS if normalized(header) not in header_lookup]
             opening_index = header_lookup.get(normalized("Fecha Apertura"))
             type_index = header_lookup.get(normalized("Tipo Tienda"))
+            store_index = header_lookup.get(normalized("Tienda"))
+            region_index = header_lookup.get(normalized("Región"))
+            district_index = header_lookup.get(normalized("DM"))
             store_types: Counter[str] = Counter()
+            regions: Counter[str] = Counter()
+            districts: Counter[str] = Counter()
             for row_number, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
                 ceco = clean_ceco(row[ceco_index]) if ceco_index is not None else ""
                 if not ceco:
                     continue
+                directory_metadata["records"] += 1
                 opening = row[opening_index] if opening_index is not None else None
                 store_type = str(row[type_index] or "").strip() if type_index is not None else ""
+                store_name = str(row[store_index] or "").strip() if store_index is not None else ""
+                region = str(row[region_index] or "").strip() if region_index is not None else ""
+                district = str(row[district_index] or "").strip() if district_index is not None else ""
+                if not store_name:
+                    directory_metadata["missingNames"].append({"row": row_number, "ceco": ceco})
+                if not region:
+                    directory_metadata["missingRegions"].append({"row": row_number, "ceco": ceco})
+                else:
+                    regions[region] += 1
+                if not district:
+                    directory_metadata["missingDistricts"].append({"row": row_number, "ceco": ceco})
+                else:
+                    districts[district] += 1
                 if not opening:
                     directory_metadata["missingOpeningDates"].append({"row": row_number, "ceco": ceco})
+                elif not valid_opening_date(opening):
+                    directory_metadata["invalidOpeningDates"].append({"row": row_number, "ceco": ceco, "value": json_value(opening)})
                 if not store_type:
                     directory_metadata["missingStoreTypes"].append({"row": row_number, "ceco": ceco})
                 if store_type:
                     store_types[store_type] += 1
             directory_metadata["storeTypes"] = dict(sorted(store_types.items()))
+            directory_metadata["regions"] = dict(sorted(regions.items()))
+            directory_metadata["districts"] = dict(sorted(districts.items()))
         elif sheet.title == "Instrucciones":
             expected = ("Pestaña", "Area", "Ponderacion", "Logica Selección Mes Multiple", "Logica YTD")
             missing_headers = [header for header in expected if normalized(header) not in header_lookup]
@@ -138,7 +185,10 @@ def audit_workbook(source: Path) -> dict[str, Any]:
         len(item["missingHeaders"]) + len(item["invalidCeCos"]) + len(item["invalidPercentages"])
         + (len(item["duplicateCeCos"]) if item["sheet"] == "Directorio" else 0)
         for item in sheets
-    ) + len(directory_metadata["missingOpeningDates"]) + len(directory_metadata["missingStoreTypes"])
+    ) + sum(len(directory_metadata[key]) for key in (
+        "missingNames", "missingRegions", "missingDistricts", "missingOpeningDates",
+        "invalidOpeningDates", "missingStoreTypes",
+    ))
     duplicate_indicator_rows = {
         item["sheet"]: item["duplicateCeCos"] for item in sheets
         if item["sheet"] != "Directorio" and item["duplicateCeCos"]

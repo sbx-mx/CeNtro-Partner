@@ -15,6 +15,7 @@ type WorkbookSource = {
   indicatorSheets: Map<string,IndicatorSheet>
   baseAudit: AuditItem[]
   baseSheetAudits: SheetAudit[]
+  availablePeriods: Period[]
 }
 
 const MONTHS: Month[] = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
@@ -266,7 +267,27 @@ function buildIndicator(source: WorkbookSource, config: IndicatorConfig, ceco: s
 function evaluateSource(source: WorkbookSource, selection: Period[]): WorkbookResult {
   const normalizedSelection = selection.includes('YTD') ? ['YTD'] as Period[] : MONTHS.filter(month => selection.includes(month))
   const effectiveSelection = normalizedSelection
-  let stores = source.directory.map(store => summarize(store, INDICATORS.map(config => buildIndicator(source, config, store.CeCo, effectiveSelection))))
+  const selectedMonth = effectiveSelection.length === 1 && effectiveSelection[0] !== 'YTD' ? effectiveSelection[0] as Month : null
+  const previousMonth = selectedMonth ? MONTHS[MONTHS.indexOf(selectedMonth) - 1] : undefined
+  let stores = source.directory.map(store => summarize(store, INDICATORS.map(config => {
+    const current = buildIndicator(source, config, store.CeCo, effectiveSelection)
+    if (!previousMonth) return current
+    const previous = buildIndicator(source, config, store.CeCo, [previousMonth])
+    const currentNumber = numeric(current.value)
+    const previousNumber = numeric(previous.value)
+    const trend = currentNumber === null || previousNumber === null
+      ? 'unavailable'
+      : Math.abs(currentNumber - previousNumber) < 1e-9 ? 'flat'
+        : currentNumber > previousNumber ? 'up' : 'down'
+    return {
+      ...current,
+      previousMonth,
+      previousValue:previous.value,
+      previousDisplayValue:previous.displayValue,
+      previousStatus:previous.status,
+      trend,
+    }
+  })))
   stores = stores
     .sort((a,b) => b.compliance - a.compliance || b.fulfilled - a.fulfilled || a.CeCo.localeCompare(b.CeCo))
     .map((store,index) => ({ ...store, rank:index + 1 }))
@@ -277,7 +298,7 @@ function evaluateSource(source: WorkbookSource, selection: Period[]): WorkbookRe
     stores,
     audit,
     sheets: source.baseSheetAudits,
-    periods: [...PERIODS],
+    periods: source.availablePeriods,
     selectedPeriods: effectiveSelection,
     fileName: source.fileName,
     processedAt: new Date().toISOString(),
@@ -399,7 +420,18 @@ async function parseSource(buffer: ArrayBuffer, fileName: string): Promise<Workb
   baseAudit.push({ level:'ok', category:'Estructura', message:`${directory.length} tiendas y ${INDICATORS.length} indicadores cargados por pestaña y encabezado.` })
   baseAudit.push({ level:'ok', category:'Directorio', message:`Tienda, Región, DM, Fecha Apertura y Tipo Tienda relacionados exclusivamente por CeCo para ${directory.length} tiendas únicas.` })
 
-  return { fileName, directory, duplicateDirectoryCeCos, foundSheets, missingSheets, instructions, indicatorSheets, baseAudit, baseSheetAudits }
+  const availableMonths = MONTHS.filter(month => [...indicatorSheets.values()].some(sheet => {
+    const key = sheet.periodKeys[month]
+    return Boolean(key && sheet.rows.some(row => !isBlank(row[key])))
+  }))
+  const hasYTD = [...indicatorSheets.values()].some(sheet => {
+    const key = sheet.periodKeys.YTD
+    return Boolean(key && sheet.rows.some(row => !isBlank(row[key])))
+  })
+  const availablePeriods: Period[] = [...availableMonths, ...(hasYTD ? ['YTD' as const] : [])]
+  if (!availablePeriods.length) throw new Error('No se encontraron periodos con información en el Excel motor.')
+
+  return { fileName, directory, duplicateDirectoryCeCos, foundSheets, missingSheets, instructions, indicatorSheets, baseAudit, baseSheetAudits, availablePeriods }
 }
 
 export async function parseWorkbook(buffer: ArrayBuffer, fileName: string, selection: Period[] = ['YTD']): Promise<WorkbookResult> {

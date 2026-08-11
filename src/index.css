@@ -2,26 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-:root{font-family:Inter,Aptos,"Segoe UI",sans-serif;color:#17211d;background:#f6f8f7;font-synthesis:none}
+:root{font-family:Inter,Aptos,"Segoe UI",sans-serif;color:#17211d;background:#f7f5f0;font-synthesis:none}
 *{box-sizing:border-box}
 body{margin:0;min-width:320px}
 .card{@apply rounded-2xl border border-slate-200 bg-white p-5;contain:layout}
 .control{@apply mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-starbucks focus:ring-2 focus:ring-starbucks/10}
 .control:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid rgba(0,98,65,.22);outline-offset:2px}
 .ranking-filters{position:relative;z-index:10;overflow:visible;contain:none}
-.month-picker{position:relative;z-index:1;min-width:0;font-size:.875rem;font-weight:600;letter-spacing:normal;text-transform:none}
-.month-picker.is-open{z-index:1001}
-.month-picker-trigger{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-top:0;border-color:#78a995;cursor:pointer;text-align:left}
-.month-picker-trigger span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.month-picker-trigger svg{flex:none;transition:transform .14s ease}.month-picker.is-open .month-picker-trigger svg{transform:rotate(180deg)}
-.month-picker-menu{position:absolute;top:calc(100% + .5rem);left:0;z-index:2000;width:max(100%,19rem);max-width:min(23rem,calc(100vw - 2rem));padding:.75rem;border:1px solid #78a995;border-radius:1rem;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.1)}
-.month-picker-actions{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.65rem}
-.month-picker-actions button{min-height:42px;border:1px solid #cbd5e1;border-radius:.65rem;background:#fff;padding:.5rem .65rem;color:#475569;font-size:.75rem;font-weight:800;cursor:pointer}
-.month-picker-actions button:first-child{border-color:#8ab4a3;color:#006241}.month-picker-actions button:hover{background:#f3f8f5}
-.month-picker-options{display:grid;max-height:17.5rem;overflow-y:auto;overscroll-behavior:contain;gap:.35rem;padding-right:.15rem;scrollbar-gutter:stable}
-.month-picker-option{display:flex;align-items:center;gap:.65rem;width:100%;min-height:42px;border:1px solid transparent;border-radius:.65rem;background:#fff;padding:.5rem .7rem;color:#475569;font-size:.8rem;font-weight:800;text-align:left;cursor:pointer}
-.month-picker-option:hover{background:#f8fafc}.month-picker-option.is-selected{border-color:#8ab4a3;background:#e7f3ed;color:#006241}
-.month-picker-check{display:grid;width:1.2rem;height:1.2rem;flex:none;place-items:center;border:1px solid #94a3b8;border-radius:.3rem;background:#fff}.month-picker-option.is-selected .month-picker-check{border-color:#006241;background:#006241;color:#fff}
+.executive-filter-heading{display:grid;grid-template-columns:minmax(12rem,auto) minmax(18rem,32rem);align-items:end;justify-content:space-between;gap:1rem}
+.period-note{margin:.25rem 0 0;color:#5f746b;font-size:.72rem;font-weight:650}
+.period-selector{display:grid;grid-template-columns:auto 1fr;gap:.45rem}
+.period-ytd{min-height:44px;border:1px solid #88ad9d;border-radius:.75rem;background:#f0f6f3;padding:.5rem .8rem;color:#006241;font-size:.82rem;font-weight:900;cursor:pointer}
+.period-ytd:hover,.period-ytd.is-active{border-color:#006241;background:#006241;color:#fff}
+.period-month{margin-top:0!important;min-width:0;border-color:#88ad9d}
 .filter-label{@apply text-xs font-semibold uppercase tracking-wide text-slate-500}
 .primary-button{@apply inline-flex items-center justify-center gap-2 rounded-xl bg-starbucks px-4 py-2.5 text-sm font-bold text-white transition hover:bg-starbucks-dark}
 .section-heading{@apply mb-0 flex flex-wrap items-center justify-between gap-3}
@@ -50,7 +43,7 @@ body{margin:0;min-width:320px}
 .status-row.active{@apply border-starbucks/30 bg-starbucks-light text-starbucks}
 .status-row.done{@apply border-emerald-200 bg-emerald-50 text-emerald-700}
 .status-dot{@apply h-5 w-5 rounded-full border-2 border-current}
-.ranking-scroll{overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch}
+.ranking-scroll{overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;-webkit-overflow-scrolling:touch;contain:layout paint style}
 .ranking-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;text-align:center;font-size:.78rem}
 .ranking-table th{white-space:nowrap;border-right:1px solid #e2e8f0;border-bottom:1px solid #cbd5e1;padding:.7rem .65rem;background:#f8fafc;color:#475569;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.035em}
 .ranking-table td{min-width:88px;border-right:1px solid #edf2f7;border-bottom:1px solid #edf2f7;padding:.65rem;white-space:nowrap;background:#fff}
@@ -68,11 +61,6 @@ body{margin:0;min-width:320px}
 .compliance-cell{background:#f0f8f4!important;min-width:112px!important}
 .compliance-badge{display:inline-flex;border-radius:999px;background:#006241;color:#fff;padding:.4rem .65rem;font-weight:800}
 @media(max-width:640px){.card{@apply rounded-xl}.store-col{min-width:220px!important;max-width:250px}.ranking-table th,.ranking-table td{padding:.55rem .5rem}}
-@media(max-width:640px){
-  .month-picker-menu{position:fixed;top:auto;right:.75rem;bottom:.75rem;left:.75rem;width:auto;max-width:none;max-height:min(75vh,34rem);padding:.85rem;border-radius:1rem}
-  .month-picker-options{max-height:calc(min(75vh,34rem) - 4.8rem)}
-  .month-picker-actions button,.month-picker-option{min-height:46px}
-}
 
 /* Compact ranking layout: vertical indicator headers only. */
 .ranking-table .indicator-header{
@@ -98,12 +86,16 @@ body{margin:0;min-width:320px}
   font-weight:900;
 }
 .ranking-table td.indicator-cell{
+  position:relative;
   width:46px;
   min-width:46px;
   max-width:46px;
   padding:.55rem .2rem;
   text-align:center;
 }
+.indicator-value{display:inline-block}
+.trend-marker{position:absolute;top:3px;right:2px;display:grid;width:14px;height:14px;place-items:center;border-radius:999px;background:rgba(255,255,255,.82);box-shadow:0 0 0 1px rgba(15,23,42,.08)}
+.trend-marker.is-up{color:#087443}.trend-marker.is-down{color:#b42318}.trend-marker.is-flat{color:#64748b}
 .ranking-table .compliance-header,
 .ranking-table .compliance-cell{
   width:110px;
@@ -202,6 +194,10 @@ body{margin:0;min-width:320px}
 .ranking-search input::placeholder{color:#87968f;font-weight:650}
 .ranking-search button{display:grid;width:28px;height:28px;flex:none;place-items:center;border:0;border-radius:999px;background:#edf4f0;color:#47675a;cursor:pointer}
 .ranking-search button:hover{background:#dcebe4;color:#006241}
+.ranking-search-top{width:100%;min-height:48px;border-color:#91b6a6;background:#fbfdfc}
+.ranking-search-top input{font-size:.9rem}
+.pdf-button{display:inline-flex;align-items:center;gap:.45rem;border:1px solid #c8943c;border-radius:.65rem;background:#fff8e8;padding:.5rem .75rem;color:#6f4a08;font-size:.75rem;font-weight:850;cursor:pointer}
+.pdf-button:hover{border-color:#b77c19;background:#ffefc7}
 .store-age-toggle{
   display:inline-flex;
   align-items:center;
@@ -255,8 +251,29 @@ body{margin:0;min-width:320px}
   .network-status,.update-status{font-size:.66rem;padding:.4rem .55rem}
   .ranking-table .store-col{width:220px;min-width:220px!important;max-width:238px}
   .ranking-search{order:3;width:100%}
+  .executive-filter-heading{grid-template-columns:1fr}
   .store-name{font-size:.82rem}
   .store-age-toggle{padding:.45rem .6rem}
+}
+
+@page{size:letter landscape;margin:.35in}
+@media print{
+  :root,body{background:#fff!important}
+  header,.app-footer,.dashboard-summary,.ranking-filters,.section-heading>div:last-child{display:none!important}
+  main{max-width:none!important;padding:0!important}
+  .card{border:0!important;border-radius:0!important;box-shadow:none!important}
+  .section-heading{padding:.1in 0!important;border:0!important}
+  .section-heading::after{content:"Reporte generado desde CeNtro Partner";color:#52635c;font-size:8pt;font-weight:700}
+  .ranking-scroll{overflow:visible!important;contain:none!important}
+  .ranking-table{width:100%!important;min-width:100%!important;font-size:6.5pt!important;table-layout:fixed}
+  .ranking-table thead{display:table-header-group}
+  .ranking-table tr{break-inside:avoid;page-break-inside:avoid}
+  .ranking-table th,.ranking-table td{padding:3px 2px!important}
+  .ranking-table .store-col{position:static!important;width:1.8in!important;min-width:1.8in!important;max-width:1.8in!important}
+  .ranking-table .indicator-header,.ranking-table td.indicator-cell{width:auto!important;min-width:0!important;max-width:none!important}
+  .ranking-table .indicator-header{height:.95in!important}
+  .trend-marker{top:1px;right:0;box-shadow:none}
+  .compliance-meter{min-height:22px}
 }
 @media(prefers-reduced-motion:no-preference){
   .card,.control,button{transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease}

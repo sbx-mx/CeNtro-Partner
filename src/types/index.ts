@@ -27,6 +27,11 @@ export interface IndicatorValue {
   fulfilled: number
   applicable: number
   status: 'cumple'|'no-cumple'|'na'|'blank'
+  previousMonth?: Month
+  previousValue?: unknown
+  previousDisplayValue?: string
+  previousStatus?: 'cumple'|'no-cumple'|'na'|'blank'
+  trend?: 'up'|'down'|'flat'|'unavailable'
 }
 export interface StoreResult extends DirectoryRow {
   indicators: IndicatorValue[]

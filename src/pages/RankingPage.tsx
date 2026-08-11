@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, Building2, CalendarOff, CircleGauge, FileDown, ListChecks, Minus, MonitorUp, Search, Trophy, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, Building2, CalendarOff, CircleGauge, FileDown, ListChecks, Minus, MonitorUp, Search, Sigma, Trophy, X } from 'lucide-react'
 import { LoadingPanel } from '../components/LoadingPanel'
 import { RecoveryPanel } from '../components/RecoveryPanel'
 import { StatCard } from '../components/StatCard'
@@ -8,7 +8,7 @@ import type { IndicatorValue, Month, Period, Pillar, StoreResult } from '../type
 
 const months: Month[] = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
 const pillars: Pillar[] = ['Todos','Partner','Cliente','Negocio']
-const percentIndicators = new Set(['Rotacion','Estabilidad 12M','Desempeño','Conexion','Bebida','SR%','VMT%','ppto%','AT%','COGS'])
+const percentIndicators = new Set(['Rotacion','Estabilidad 12M','Efectividad','Desempeño','Conexion','Bebida','SR%','VMT%','ppto%','AT%','COGS'])
 const clientIndicatorOrder = ['NPS','Conexion','Desempeño','Bebida','SR%']
 const visibleIndicatorNames: Record<string,string> = {
   'Rotacion':'Rotación',
@@ -124,6 +124,21 @@ function complianceComparison(store: StoreResult) {
   return { previousMonth, previousCompliance, deltaPoints }
 }
 
+function indicatorColumnAverage(template: IndicatorValue, stores: StoreResult[]) {
+  const realValues = stores
+    .map(store => store.indicators.find(indicator => indicator.indicator === template.indicator))
+    .filter((indicator): indicator is IndicatorValue => Boolean(indicator))
+    .filter(indicator => indicator.applicable > 0 && indicator.status !== 'na' && indicator.status !== 'blank')
+    .map(indicator => typeof indicator.value === 'number' && Number.isFinite(indicator.value) ? indicator.value : null)
+    .filter((value): value is number => value !== null)
+  if (!realValues.length) return { display:'—', count:0 }
+  const average = realValues.reduce((sum,value) => sum + value, 0) / realValues.length
+  return {
+    display:formatValue({ ...template, value:average, displayValue:undefined, status:'cumple' }),
+    count:realValues.length,
+  }
+}
+
 export function RankingPage() {
   const {
     data, stores, stage, error, retry, selectedPeriod, setSelectedPeriod,
@@ -135,12 +150,18 @@ export function RankingPage() {
   const [presentationMode, setPresentationMode] = useState(false)
   const [storeQuery, setStoreQuery] = useState('')
   const [showIndicatorTrends, setShowIndicatorTrends] = useState(() => localStorage.getItem('centro-partner-show-trends') !== 'false')
+  const [showColumnAverages, setShowColumnAverages] = useState(() => localStorage.getItem('centro-partner-show-averages') === 'true')
   const deferredStoreQuery = useDeferredValue(storeQuery)
 
   useEffect(() => {
     try { localStorage.setItem('centro-partner-show-trends', String(showIndicatorTrends)) }
     catch { /* La preferencia visual no bloquea la navegación. */ }
   }, [showIndicatorTrends])
+
+  useEffect(() => {
+    try { localStorage.setItem('centro-partner-show-averages', String(showColumnAverages)) }
+    catch { /* La preferencia visual no bloquea la navegación. */ }
+  }, [showColumnAverages])
 
   const displayedIndicators = useMemo(() => orderIndicators(
     stores[0]?.indicators
@@ -186,10 +207,29 @@ export function RankingPage() {
     || a.Tienda.trim().localeCompare(b.Tienda.trim(), 'es')
   )[0], [visibleStores])
 
+  const columnAverages = useMemo(() => new Map(displayedIndicators.map(indicator => [
+    indicator.indicator,
+    indicatorColumnAverage(indicator, visibleStores),
+  ])), [displayedIndicators, visibleStores])
+
+  const averageComparison = useMemo(() => {
+    const comparisons = visibleStores.map(complianceComparison).filter((item): item is NonNullable<ReturnType<typeof complianceComparison>> => Boolean(item))
+    if (!comparisons.length) return null
+    return {
+      previousMonth:comparisons[0].previousMonth,
+      deltaPoints:comparisons.reduce((sum,item) => sum + item.deltaPoints, 0) / comparisons.length,
+      count:comparisons.length,
+    }
+  }, [visibleStores])
+
   if (stage !== 'ready' && stage !== 'error' && !data) return <LoadingPanel stage={stage} />
   if (stage === 'error') return <RecoveryPanel message={error} onRetry={retry} />
 
   const average = visibleStores.length ? visibleStores.reduce((sum,store) => sum + store.compliance, 0) / visibleStores.length : 0
+  const storesWithCompliance = visibleStores.filter(store => store.applicable > 0)
+  const columnComplianceAverage = storesWithCompliance.length
+    ? storesWithCompliance.reduce((sum,store) => sum + store.compliance, 0) / storesWithCompliance.length
+    : 0
   const activeGroups = pillar === 'Todos' ? (['Partner','Cliente','Negocio'] as const) : ([pillar] as const)
   const title = selectionLabel(selectedPeriod)
   function toggleIndicatorSort(indicator: SortColumn) {
@@ -245,6 +285,13 @@ export function RankingPage() {
           {presentationMode ? <button type="button" onClick={() => setPresentationMode(false)} className="presentation-exit-button"><X size={15} />Salir de presentación</button> : <button type="button" onClick={() => setPresentationMode(true)} className="presentation-button"><MonitorUp size={15} />Modo Presentación</button>}
           <button
             type="button"
+            onClick={() => setShowColumnAverages(current => !current)}
+            className={`averages-toggle ${showColumnAverages ? 'is-active' : ''}`}
+            aria-pressed={showColumnAverages}
+            title="Promedio de cada columna con los filtros activos; excluye N/A y vacíos"
+          ><Sigma size={15} />{showColumnAverages ? 'Ocultar promedios' : 'Mostrar promedios'}</button>
+          <button
+            type="button"
             onClick={() => setShowIndicatorTrends(current => !current)}
             className={`trend-toggle ${showIndicatorTrends ? 'is-active' : ''}`}
             aria-pressed={showIndicatorTrends}
@@ -278,7 +325,15 @@ export function RankingPage() {
             </th>
           })}<th className="compliance-header"><button type="button" onClick={toggleComplianceSort} className="inline-flex items-center gap-1.5" title={sortColumn === 'compliance' && sortDirection === 'desc' ? 'Ordenar de menor a mayor' : 'Ordenar de mayor a menor'}>Cumplimiento {sortColumn === 'compliance' && sortDirection === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}</button></th>
           <th className="comparison-header"><span>vs mes anterior</span></th></tr></thead>
-        <tbody>{sortedStores.map(store => {
+        <tbody>{showColumnAverages && <tr className="column-average-row">
+          <td className="sticky-col store-col column-average-label"><strong>Promedio visible</strong><small>{visibleStores.length} {visibleStores.length === 1 ? 'tienda filtrada' : 'tiendas filtradas'} · sin N/A</small></td>
+          {displayedIndicators.map(indicator => {
+            const summary = columnAverages.get(indicator.indicator) ?? { display:'—', count:0 }
+            return <td key={indicator.indicator} className="column-average-cell" title={`Promedio de ${visibleIndicatorName(indicator.indicator)} con ${summary.count} ${summary.count === 1 ? 'dato real' : 'datos reales'}`}><strong>{summary.display}</strong><small>{summary.count ? `n=${summary.count}` : 'sin datos'}</small></td>
+          })}
+          <td className="column-average-compliance"><strong>{storesWithCompliance.length ? `${(columnComplianceAverage * 100).toFixed(1)}%` : '—'}</strong><small>{storesWithCompliance.length ? `n=${storesWithCompliance.length}` : 'sin datos'}</small></td>
+          <td className="column-average-comparison">{averageComparison ? <><strong className={Math.abs(averageComparison.deltaPoints) < .05 ? 'is-flat' : averageComparison.deltaPoints > 0 ? 'is-up' : 'is-down'}>{averageComparison.deltaPoints > 0 ? '+' : ''}{averageComparison.deltaPoints.toFixed(1)} pp</strong><small>vs {averageComparison.previousMonth.toUpperCase()} · n={averageComparison.count}</small></> : <><strong>—</strong><small>no aplica</small></>}</td>
+        </tr>}{sortedStores.map(store => {
           const indicatorMap = new Map(store.indicators.map(indicator => [indicator.indicator, indicator]))
           return <tr key={store.CeCo}><td className="sticky-col store-col font-semibold text-slate-900"><span className="store-name">{store.Tienda.trim()}</span></td>
             {displayedIndicators.map(indicator => {

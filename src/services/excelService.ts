@@ -19,6 +19,8 @@ type WorkbookSource = {
 }
 
 const MONTHS: Month[] = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+const MAX_EXCEL_BYTES = 25 * 1024 * 1024
+const FETCH_TIMEOUT_MS = 20_000
 type XlsxModule = typeof import('xlsx')
 const findSheet = (wb: WorkBook, expected: string) => wb.SheetNames.find(name => normalize(name) === normalize(expected))
 const toRows = (XLSX: XlsxModule, ws: WorkSheet) => XLSX.utils.sheet_to_json<Row>(ws, { defval: null, raw: true, blankrows: false })
@@ -422,7 +424,21 @@ async function parseSource(buffer: ArrayBuffer, fileName: string): Promise<Workb
   baseAudit.push({ level:'ok', category:'Estructura', message:`${directory.length} tiendas y ${INDICATORS.length} indicadores cargados por pestaña y encabezado.` })
   baseAudit.push({ level:'ok', category:'Directorio', message:`Tienda, Región, DM, Fecha Apertura y Tipo Tienda relacionados exclusivamente por CeCo para ${directory.length} tiendas únicas.` })
 
-  const availableMonths = MONTHS.filter(month => [...indicatorSheets.values()].some(sheet => {
+  const observedMonths = MONTHS.filter(month => [...indicatorSheets.values()].some(sheet => {
+    const key = sheet.periodKeys[month]
+    return Boolean(key && sheet.rows.some(row => !isBlank(row[key])))
+  }))
+  const latestMonth = observedMonths[observedMonths.length - 1]
+  const incompleteLatestSheets = latestMonth
+    ? [...indicatorSheets.values()].filter(sheet => {
+        const key = sheet.periodKeys[latestMonth]
+        return !key || !sheet.rows.some(row => !isBlank(row[key]))
+      }).map(sheet => sheet.actualName)
+    : []
+  if (incompleteLatestSheets.length) {
+    throw new Error(`Cobertura incompleta de ${latestMonth.toUpperCase()}: ${incompleteLatestSheets.join(', ')}.`)
+  }
+  const availableMonths = MONTHS.filter(month => [...indicatorSheets.values()].every(sheet => {
     const key = sheet.periodKeys[month]
     return Boolean(key && sheet.rows.some(row => !isBlank(row[key])))
   }))
@@ -446,12 +462,35 @@ export function invalidateDefaultSource() {
 }
 function fetchDefaultSource() {
   if (!defaultSource) {
-    const url = new URL(`${import.meta.env.BASE_URL}data/Base_CeNtro%20Partner.xlsx`, window.location.origin)
-    defaultSource = fetch(url.toString(), { cache:'no-store' })
-      .then(async response => {
+    defaultSource = (async () => {
+      const metadataUrl = new URL(`${import.meta.env.BASE_URL}data/excel-release.json`, window.location.origin)
+      const metadata = await fetch(metadataUrl.toString(), { cache:'no-store' })
+        .then(response => response.ok ? response.json() as Promise<{ excelSha256?:unknown }> : null)
+        .catch(() => null)
+      const expectedHash = typeof metadata?.excelSha256 === 'string' && /^[a-f0-9]{64}$/i.test(metadata.excelSha256)
+        ? metadata.excelSha256.toLowerCase()
+        : null
+      const url = new URL(`${import.meta.env.BASE_URL}data/Base_CeNtro%20Partner.xlsx`, window.location.origin)
+      if (expectedHash) url.searchParams.set('v', expectedHash.slice(0,16))
+      const controller = new AbortController()
+      const timeout = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+      try {
+        const response = await fetch(url.toString(), { cache:'no-store', signal:controller.signal })
         if (!response.ok) throw new Error(`No fue posible cargar el Excel predeterminado (HTTP ${response.status}).`)
-        return parseSource(await response.arrayBuffer(), 'Base_CeNtro Partner.xlsx')
-      })
+        const declaredSize = Number(response.headers.get('content-length') ?? 0)
+        if (declaredSize > MAX_EXCEL_BYTES) throw new Error('El Excel predeterminado excede el límite seguro de 25 MiB.')
+        const buffer = await response.arrayBuffer()
+        if (buffer.byteLength > MAX_EXCEL_BYTES) throw new Error('El Excel predeterminado excede el límite seguro de 25 MiB.')
+        if (expectedHash && globalThis.crypto?.subtle) {
+          const digest = await crypto.subtle.digest('SHA-256', buffer)
+          const actualHash = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('')
+          if (actualHash !== expectedHash) throw new Error('La versión descargada del Excel no coincide con la publicación vigente.')
+        }
+        return parseSource(buffer, 'Base_CeNtro Partner.xlsx')
+      } finally {
+        window.clearTimeout(timeout)
+      }
+    })()
       .catch(error => { defaultSource = null; throw error })
   }
   return defaultSource

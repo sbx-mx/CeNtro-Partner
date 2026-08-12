@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import zipfile
 from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
@@ -21,7 +22,10 @@ REQUIRED_SHEETS = {
     "Estabilidad 12M", "BB", "BT", "SS",
 }
 DIRECTORY_HEADERS = ("CeCo", "Tienda", "Región", "DM", "Fecha Apertura", "Tipo Tienda")
-JULY_SHEETS = REQUIRED_SHEETS.difference({"Directorio", "Instrucciones"})
+PERIOD_SHEETS = REQUIRED_SHEETS.difference({"Directorio", "Instrucciones"})
+MAX_ARCHIVE_ENTRIES = 10_000
+MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
+MAX_COMPRESSION_RATIO = 200
 
 
 def normalized(value: Any) -> str:
@@ -53,12 +57,34 @@ def valid_opening_date(value: Any) -> bool:
     return False
 
 
+def validate_xlsx_container(source: Path) -> None:
+    """Rechaza archivos XLSX corruptos o con expansión desproporcionada."""
+    if source.suffix.casefold() != ".xlsx" or not source.is_file():
+        raise ValueError("El origen debe ser un archivo .xlsx existente.")
+    if not zipfile.is_zipfile(source):
+        raise ValueError("El archivo no es un contenedor XLSX válido.")
+    with zipfile.ZipFile(source) as archive:
+        entries = archive.infolist()
+        if len(entries) > MAX_ARCHIVE_ENTRIES:
+            raise ValueError("El XLSX contiene demasiados archivos internos.")
+        total_size = sum(entry.file_size for entry in entries)
+        if total_size > MAX_UNCOMPRESSED_BYTES:
+            raise ValueError("El XLSX supera el límite seguro descomprimido de 100 MiB.")
+        for entry in entries:
+            if entry.filename.startswith(("/", "\\")) or ".." in Path(entry.filename).parts:
+                raise ValueError(f"Ruta interna insegura en XLSX: {entry.filename}")
+            compressed = max(entry.compress_size, 1)
+            if entry.file_size > 1024 * 1024 and entry.file_size / compressed > MAX_COMPRESSION_RATIO:
+                raise ValueError(f"Compresión sospechosa en XLSX: {entry.filename}")
+
+
 def audit_workbook(source: Path) -> dict[str, Any]:
+    validate_xlsx_container(source)
     digest = hashlib.sha256(source.read_bytes()).hexdigest()
-    workbook = load_workbook(source, data_only=False, read_only=True)
+    workbook = load_workbook(source, data_only=False, read_only=True, keep_links=False)
     available_sheets = {normalized(name) for name in workbook.sheetnames}
     normalized_required_sheets = {normalized(name) for name in REQUIRED_SHEETS}
-    normalized_july_sheets = {normalized(name) for name in JULY_SHEETS}
+    normalized_period_sheets = {normalized(name) for name in PERIOD_SHEETS}
     missing_sheets = sorted(sheet for sheet in REQUIRED_SHEETS if normalized(sheet) not in available_sheets)
     sheets: list[dict[str, Any]] = []
     totals = Counter(rows=0, cells=0, blanks=0, formulas=0, numbers=0, text=0, dates=0)
@@ -74,18 +100,26 @@ def audit_workbook(source: Path) -> dict[str, Any]:
         "invalidOpeningDates": [],
         "missingStoreTypes": [],
     }
-    missing_july_sheets: list[str] = []
+    period_headers: dict[str, set[str]] = {}
+    period_value_counts: dict[str, dict[str, int]] = {}
+    formula_cells: list[dict[str, str]] = []
+    duplicate_headers: dict[str, list[str]] = {}
 
     for sheet in workbook.worksheets:
         if sheet.max_row is None or sheet.max_column is None:
             sheet.calculate_dimension(force=True)
         headers = [cell.value for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
         header_lookup = {normalized(header): index for index, header in enumerate(headers)}
+        normalized_headers = [normalized(header) for header in headers if normalized(header)]
+        repeated_headers = sorted(header for header, count in Counter(normalized_headers).items() if count > 1)
+        if repeated_headers:
+            duplicate_headers[sheet.title] = repeated_headers
         ceco_index = header_lookup.get("ceco")
         cecos: list[str] = []
         invalid_cecos: list[str] = []
         invalid_percentages: list[dict[str, Any]] = []
         counters = Counter(rows=max(sheet.max_row - 1, 0), cells=sheet.max_row * sheet.max_column)
+        monthly_counts = Counter({month: 0 for month in MONTHS})
 
         for row_number, row in enumerate(sheet.iter_rows(min_row=2, values_only=False), start=2):
             if ceco_index is not None:
@@ -101,6 +135,7 @@ def audit_workbook(source: Path) -> dict[str, Any]:
                     counters["blanks"] += 1
                 elif cell.data_type == "f":
                     counters["formulas"] += 1
+                    formula_cells.append({"sheet": sheet.title, "cell": cell.coordinate})
                 elif isinstance(value, bool):
                     counters["booleans"] += 1
                 elif isinstance(value, (int, float)):
@@ -111,6 +146,8 @@ def audit_workbook(source: Path) -> dict[str, Any]:
                     counters["text"] += 1
 
                 header = normalized(headers[column_number - 1]) if column_number <= len(headers) else ""
+                if header in MONTHS and value not in (None, ""):
+                    monthly_counts[header] += 1
                 if sheet.title in PERCENT_SHEETS and header in MONTHS and value not in (None, "", "N/A", "NA"):
                     if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= float(value) <= 1:
                         invalid_percentages.append({"cell": cell.coordinate, "value": json_value(value)})
@@ -164,8 +201,9 @@ def audit_workbook(source: Path) -> dict[str, Any]:
         elif normalized(sheet.title) in normalized_required_sheets:
             missing_headers = ["CeCo"] if "ceco" not in header_lookup else []
 
-        if normalized(sheet.title) in normalized_july_sheets and "jul" not in header_lookup:
-            missing_july_sheets.append(sheet.title)
+        if normalized(sheet.title) in normalized_period_sheets:
+            period_headers[sheet.title] = {month for month in MONTHS if month in header_lookup}
+            period_value_counts[sheet.title] = {month: monthly_counts[month] for month in MONTHS if month in header_lookup}
 
         totals.update(counters)
         sheets.append({
@@ -181,6 +219,23 @@ def audit_workbook(source: Path) -> dict[str, Any]:
             "types": {key: counters[key] for key in ("numbers", "text", "dates", "booleans", "formulas", "blanks")},
         })
 
+    observed_months = [
+        month for month in MONTHS
+        if any(month in headers and period_value_counts[sheet].get(month, 0) > 0 for sheet, headers in period_headers.items())
+    ]
+    latest_period = observed_months[-1] if observed_months else None
+    required_through_latest = set(MONTHS[: MONTHS.index(latest_period) + 1]) if latest_period else set()
+    missing_period_headers = {
+        sheet: sorted(required_through_latest.difference(headers), key=MONTHS.index)
+        for sheet, headers in period_headers.items()
+        if required_through_latest.difference(headers)
+    }
+    empty_latest_period_sheets = sorted(
+        sheet for sheet, counts in period_value_counts.items()
+        if latest_period and latest_period in period_headers[sheet] and counts.get(latest_period, 0) == 0
+    )
+    period_coverage_issues = sum(len(values) for values in missing_period_headers.values()) + len(empty_latest_period_sheets)
+
     blocking_issues = len(missing_sheets) + sum(
         len(item["missingHeaders"]) + len(item["invalidCeCos"]) + len(item["invalidPercentages"])
         + (len(item["duplicateCeCos"]) if item["sheet"] == "Directorio" else 0)
@@ -188,12 +243,12 @@ def audit_workbook(source: Path) -> dict[str, Any]:
     ) + sum(len(directory_metadata[key]) for key in (
         "missingNames", "missingRegions", "missingDistricts", "missingOpeningDates",
         "invalidOpeningDates", "missingStoreTypes",
-    ))
+    )) + len(formula_cells) + sum(len(values) for values in duplicate_headers.values()) + period_coverage_issues
     duplicate_indicator_rows = {
         item["sheet"]: item["duplicateCeCos"] for item in sheets
         if item["sheet"] != "Directorio" and item["duplicateCeCos"]
     }
-    warnings = len(missing_july_sheets) + sum(len(values) for values in duplicate_indicator_rows.values())
+    warnings = sum(len(values) for values in duplicate_indicator_rows.values())
     return {
         "schemaVersion": 2,
         "source": source.name,
@@ -202,7 +257,14 @@ def audit_workbook(source: Path) -> dict[str, Any]:
         "totals": dict(totals),
         "issueCount": blocking_issues,
         "warningCount": warnings,
-        "julyCoverage": {"missingJulySheets": sorted(missing_july_sheets)},
+        "periodCoverage": {
+            "latestPeriod": latest_period,
+            "observedMonths": observed_months,
+            "missingHeaders": missing_period_headers,
+            "emptyLatestPeriodSheets": empty_latest_period_sheets,
+            "valueCounts": period_value_counts,
+        },
+        "security": {"formulaCells": formula_cells, "duplicateHeaders": duplicate_headers},
         "directory": directory_metadata,
         "duplicateIndicatorRows": duplicate_indicator_rows,
         "sheets": sheets,
@@ -214,7 +276,10 @@ def main() -> None:
     parser.add_argument("source", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    report = audit_workbook(args.source)
+    try:
+        report = audit_workbook(args.source)
+    except (OSError, ValueError, zipfile.BadZipFile) as error:
+        raise SystemExit(f"Validación cancelada: {error}") from error
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(json.dumps({"issueCount": report["issueCount"], "warningCount": report["warningCount"], "output": str(args.output)}, ensure_ascii=False))

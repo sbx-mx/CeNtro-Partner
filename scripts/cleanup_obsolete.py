@@ -17,6 +17,7 @@ ALLOWED_ROOT_FILES = {
     "tsconfig.node.tsbuildinfo",
 }
 PROTECTED_NAMES = {"Base_CeNtro Partner.xlsx", "campaign.json", "workbook-audit.json"}
+MAX_CANDIDATES = 100
 
 
 def main() -> None:
@@ -25,6 +26,7 @@ def main() -> None:
     parser.add_argument("--manifest", type=Path, default=Path("scripts/obsolete-files.json"))
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--check-clean", action="store_true")
+    parser.add_argument("--print-candidates", action="store_true")
     args = parser.parse_args()
 
     root = args.root.resolve()
@@ -34,6 +36,8 @@ def main() -> None:
         raise SystemExit("El manifiesto debe contener una lista de rutas en obsoleteFiles")
     if len(candidates) != len(set(candidates)):
         raise SystemExit("El manifiesto contiene rutas duplicadas")
+    if len(candidates) > MAX_CANDIDATES:
+        raise SystemExit(f"El manifiesto supera el máximo seguro de {MAX_CANDIDATES} archivos")
     approved: list[tuple[str, Path]] = []
 
     for raw in candidates:
@@ -45,12 +49,19 @@ def main() -> None:
         allowed_root = normalized in ALLOWED_ROOT_FILES
         if (not normalized.startswith(ALLOWED_PREFIXES) and not allowed_workbox and not allowed_root) or relative.name in PROTECTED_NAMES:
             raise SystemExit(f"Ruta fuera del alcance permitido: {raw}")
-        target = (root / relative).resolve()
+        unresolved_target = root / relative
+        if unresolved_target.is_symlink():
+            raise SystemExit(f"No se permiten enlaces simbólicos: {raw}")
+        target = unresolved_target.resolve()
         if root not in target.parents:
             raise SystemExit(f"Ruta fuera del repositorio: {raw}")
         if target.is_dir():
             raise SystemExit(f"Solo se permiten archivos, no carpetas: {raw}")
         approved.append((normalized, target))
+
+    if args.print_candidates:
+        print("\n".join(item[0] for item in approved))
+        return
 
     removed: list[str] = []
     for normalized, target in approved:

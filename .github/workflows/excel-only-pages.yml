@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "public/data/Base_CeNtro Partner.xlsx"
+      - "docs/data/Base_CeNtro Partner.xlsx"
   workflow_dispatch:
 
 permissions:
@@ -21,11 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       excel_only: ${{ steps.mode.outputs.excel_only }}
+      excel_source: ${{ steps.mode.outputs.excel_source }}
+    timeout-minutes: 15
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
+          persist-credentials: false
 
       - name: Configurar Python
         uses: actions/setup-python@v5
@@ -51,7 +55,9 @@ jobs:
 
       - name: Preparar sitio sin recompilar Index
         if: steps.mode.outputs.excel_only == 'true'
-        run: python scripts/excel_release.py stage --output dist
+        env:
+          EXCEL_SOURCE: ${{ steps.mode.outputs.excel_source }}
+        run: python scripts/excel_release.py stage --excel "$EXCEL_SOURCE" --output dist
 
       - name: Configurar GitHub Pages
         if: steps.mode.outputs.excel_only == 'true'
@@ -70,6 +76,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: prepare
+    timeout-minutes: 10
     steps:
       - name: Publicar Excel actualizado
         id: deployment

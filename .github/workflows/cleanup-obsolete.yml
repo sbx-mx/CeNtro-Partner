@@ -9,17 +9,22 @@ on:
         default: AUDITAR
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - name: Descargar repositorio
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
 
       - name: Configurar Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -43,6 +48,9 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -u -- .
+          python scripts/cleanup_obsolete.py --print-candidates > .cleanup-candidates.txt
+          mapfile -t obsolete < .cleanup-candidates.txt
+          rm .cleanup-candidates.txt
+          git add -u -- "${obsolete[@]}"
           git commit -m "chore: eliminar archivos obsoletos autorizados"
           git push
